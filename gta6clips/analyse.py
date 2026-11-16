@@ -151,7 +151,7 @@ def analyser(source, titre, streamer, texte, jeu=None, recents=None):
     cle = _cle(c)
     voie = "api" if cle else ("cli" if c.get("analyse_par", "auto") in ("auto", "cli") and CLAUDE_CLI.exists() else None)
     if not voie:
-        return heuristique(titre, streamer, texte, jeu)
+        return dict(heuristique(titre, streamer, texte, jeu), indisponible=True)
     imgs = images_du_clip(source)
     consigne = CONSIGNE.format(jeu=jeu, streamer=streamer, titre=titre, texte=texte or "(rien d'audible)",
                                images="jointes" if voie == "api" else "lues",
@@ -163,7 +163,10 @@ def analyser(source, titre, streamer, texte, jeu=None, recents=None):
             return a
         except Exception as e:
             log(f"analyse : claude -p en échec ({type(e).__name__}: {e}), règles simples")
-            return heuristique(titre, streamer, texte, jeu, "analyse Claude en échec")
+            m = str(e).lower()
+            # Claude indisponible pour tout le monde (limite d'abonnement, jeton) : à distinguer d'un échec propre au clip
+            panne = any(k in m for k in ("usage_limit", "rate_limit", "429", "limit", "not logged in", "/login", "overloaded", "529"))
+            return dict(heuristique(titre, streamer, texte, jeu, "analyse Claude en échec"), indisponible=panne)
         finally:
             shutil.rmtree(imgs[0].parent, ignore_errors=True)
     try:

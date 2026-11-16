@@ -171,9 +171,9 @@ def preparer_un(db, clip, c, R):
         mots = monter.transcrire(source, cid)
         a = analyse.analyser(source, clip["titre"], clip["streamer"], monter.texte_dit(mots), clip.get("jeu") or None,
                              recents=recents(db))
-        if a.get("voie") == "regles":  # Claude indisponible (limite d'abonnement, jeton) : le clip attend, on retentera
-            maj(db, cid, statut="attente", raison="pas d'analyse par Claude : jamais publié seul")
-            log(f"pilote : analyse indisponible, préparation suspendue jusqu'au passage suivant")
+        if a.get("voie") == "regles" and a.get("indisponible"):  # limite d'abonnement, jeton : le clip attend, on retentera
+            maj(db, cid, statut="attente", raison="Claude indisponible (limite ou jeton) : retenté plus tard")
+            log("pilote : Claude indisponible, préparation suspendue jusqu'au passage suivant")
             return "pause"
         _compteur_analyses(1)
         from .radar import est_gta6
