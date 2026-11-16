@@ -230,9 +230,39 @@ def preparer_un(db, clip, c, R):
         return None
 
 
+def refaire(db, c, R):
+    """Remonte des clips déjà prêts (refaire.json, demande du propriétaire du 16/11 : Samia, Furax et Tatiana avec la cam).
+    Réanalyse sans seuil d'intérêt ; si le nouveau montage échoue, l'ancien reste dans la file."""
+    from .commun import RACINE, lire_json
+    d = lire_json(RACINE / "refaire.json", {})
+    R0 = {**R, "seuil_interet": 0, "seuil_interet_avant_sortie": 0}
+    for cid in d.get("ids", []):
+        f = db.execute("select fichier, ajoute_le from file where id = ? and statut = 'pret'", (f"clip:{cid}",)).fetchone()
+        r = db.execute("select * from clips where id = ?", (cid,)).fetchone()
+        if not f or not r or (f["ajoute_le"] or "") >= d.get("avant", ""):
+            continue
+        log(f"pilote : remontage de {cid}")
+        ancien = f["fichier"]
+        res = preparer_un(db, dict(r), c, R0)
+        if res == "pause":  # analyse indisponible : l'ancien montage reste, on retentera au passage suivant
+            maj(db, cid, statut="pret")
+            db.commit()
+            break
+        if res and str(res) != ancien and Path(ancien).exists():
+            a_la_corbeille(Path(ancien), Path(ancien).with_suffix(".txt"))
+        elif not res:  # échec : on remet le clip et l'ancien montage tels qu'ils étaient
+            maj(db, cid, statut="pret")
+            db.execute("update file set statut = 'pret' where id = ?", (f"clip:{cid}",))
+        db.commit()
+
+
 def preparer(maxi=None, jeux=None):
     c = config()
     R = reglages(c)
+    try:
+        refaire(base(), c, R)
+    except Exception as e:
+        log(f"pilote : remontage en échec ({type(e).__name__}: {e})")
     maxi = max(maxi or 0, R["preparer_par_tour"])  # le réglage est un plancher (launchd lance avec --max 3)
     from .radar import jeux_en_attendant
     db = base()
