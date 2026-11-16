@@ -213,7 +213,7 @@ def analyser(source, titre, streamer, texte, jeu=None, recents=None):
         # crédit épuisé, clé refusée, surcharge : le clip attend le passage suivant au lieu d'être jeté
         if isinstance(e, (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.AuthenticationError,
                           anthropic.PermissionDeniedError, anthropic.InternalServerError)) or \
-                any(m in str(e).lower() for m in ("credit", "billing", "429", "529", "overloaded", "rate")):
+                any(m in str(e).lower() for m in ("credit", "billing", "429", "529", "overloaded", "rate_limit", "rate limit")):
             a["indisponible"] = True
         return a
 
