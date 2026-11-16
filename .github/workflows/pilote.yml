@@ -1,4 +1,4 @@
-# Un passage du pilote toutes les 15 minutes, sur une machine de GitHub (rien à garder allumé).
+# Le pilote en continu sur une machine de GitHub (rien à garder allumé) : passages enchaînés, deux lancements par heure.
 # Clés : secrets GTA6_SECRETS (JSON : zernio_api_key, zernio_comptes) et CLAUDE_CODE_OAUTH_TOKEN.
 # Variable PUBLIER : « aucun » (simulation, par défaut) ou « zernio » (publication réelle).
 name: pilote
@@ -59,12 +59,16 @@ jobs:
         run: |
           python -c "import os,json;[print('::add-mask::'+str(x)) for v in json.loads(os.environ.get('GTA6_SECRETS') or '{}').values() for x in (v.values() if isinstance(v,dict) else [v])]"
           # GitHub ne lance les tâches planifiées qu'environ une fois par heure : chaque tâche enchaîne donc
-          # les passages pendant 50 minutes, et la suivante prend le relais (une seule à la fois).
-          fin=$(( $(date +%s) + 3000 ))
+          # les passages pendant 40 minutes (le dernier a 20 minutes pour finir), et la suivante prend le relais.
+          avant=$(grep -c "tourner : passage terminé" donnees/journal.log 2>/dev/null || true)
+          fin=$(( $(date +%s) + 2400 ))
           while [ "$(date +%s)" -lt "$fin" ]; do
-            python gta6.py tourner --max 3 || true
-            sleep 120
+            python gta6.py tourner --max 6 || true
+            if [ "$(date +%s)" -lt "$fin" ]; then sleep 120; fi
           done
+          apres=$(grep -c "tourner : passage terminé" donnees/journal.log 2>/dev/null || true)
+          if [ "${apres:-0}" -le "${avant:-0}" ]; then echo "aucun passage terminé pendant cette tâche"; exit 1; fi
+          if tail -40 donnees/journal.log | grep -q "claude -p en échec"; then echo "::warning::analyse Claude en échec (jeton à refaire ?)"; fi
       - name: Point
         if: always()
         run: |
