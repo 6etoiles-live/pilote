@@ -76,7 +76,7 @@
   "gaming",
   "twitchfr"
  ],
- "modele_claude": "claude-opus-5-5",
+ "modele_claude": "claude-haiku-5-5",
  "age_max_heures": 36,
  "marque": {
   "nom": "6 Étoiles",

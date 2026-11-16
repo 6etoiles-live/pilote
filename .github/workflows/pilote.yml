@@ -65,6 +65,7 @@ jobs:
         env:
           GTA6_SECRETS: ${{ secrets.GTA6_SECRETS }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # sans état retrouvé, on ne publie pas (sauf au tout premier lancement, variable ETAT_INITIALISE absente)
           GTA6_PUBLIER: ${{ (steps.secours.outputs.ok == '1' || steps.etat.outputs.cache-matched-key != '' || vars.ETAT_INITIALISE != '1') && (vars.PUBLIER || 'aucun') || 'aucun' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

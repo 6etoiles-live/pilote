@@ -184,14 +184,22 @@ def analyser(source, titre, streamer, texte, jeu=None, recents=None):
     contenu.append({"type": "text", "text": consigne})
     client = anthropic.Anthropic(api_key=cle)
     try:
-        r = client.beta.messages.create(
-            model=c.get("modele_claude", "claude-opus-5-5"),
-            max_tokens=2000,
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
-            messages=[{"role": "user", "content": contenu}],
-        )
+        modele = c.get("modele_claude", "claude-opus-5-5")
+        if "haiku" in modele:  # Haiku 5.5 n'a pas de repli côté serveur : appel simple
+            r = client.messages.create(
+                model=modele, max_tokens=4000,
+                output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
+                messages=[{"role": "user", "content": contenu}],
+            )
+        else:
+            r = client.beta.messages.create(
+                model=modele,
+                max_tokens=2000,
+                betas=["server-side-fallback-2026-07-01"],
+                fallbacks="default",
+                output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
+                messages=[{"role": "user", "content": contenu}],
+            )
         if r.stop_reason == "refusal":
             log("analyse : refus du modèle, règles simples")
             return heuristique(titre, streamer, texte, jeu, "refus du modèle")
@@ -200,8 +208,14 @@ def analyser(source, titre, streamer, texte, jeu=None, recents=None):
         a["voie"] = "api"
         return a
     except Exception as e:
-        log(f"analyse : erreur API ({type(e).__name__}: {e}), règles simples")
-        return heuristique(titre, streamer, texte, jeu, "erreur de l'API Claude")
+        log(f"analyse : erreur API ({type(e).__name__}: {str(e)[:200]}), règles simples")
+        a = heuristique(titre, streamer, texte, jeu, "erreur de l'API Claude")
+        # crédit épuisé, clé refusée, surcharge : le clip attend le passage suivant au lieu d'être jeté
+        if isinstance(e, (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.AuthenticationError,
+                          anthropic.PermissionDeniedError, anthropic.InternalServerError)) or \
+                any(m in str(e).lower() for m in ("credit", "billing", "429", "529", "overloaded", "rate")):
+            a["indisponible"] = True
+        return a
 
 
 def legende_complete(c, base_legende, streamer, jeu=None):
