@@ -94,6 +94,7 @@ def _paquets(liste, n):
 
 
 HORS_JEU = {}  # dict pour garder l'ordre d'arrivée (les plus anciens sortent en premier)
+SUIVEURS = {}  # abonnés Twitch par chaîne, relus à chaque passage
 VUES_CONNUES = {}  # vues relues des clips déjà en base, pendant le passage en cours
 
 
@@ -176,7 +177,7 @@ def categorie(c, jeux, db):
     clips = []
     for jeu in jeux:
         q = ('query($n:String!){game(name:$n){clips(first:100,criteria:{languages:[%s],period:LAST_DAY,sort:VIEWS_DESC})'
-             '{edges{node{slug title viewCount durationSeconds createdAt broadcaster{login}}}}}}' % c["langue"].upper())
+             '{edges{node{slug title viewCount durationSeconds createdAt broadcaster{login followers{totalCount}}}}}}}' % c["langue"].upper())
         try:
             for essai in (1, 2):  # Twitch répond parfois « service error » avec un code 200 : un second essai
                 d = _http("https://gql.twitch.tv/gql", {"Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko"},
@@ -193,6 +194,9 @@ def categorie(c, jeux, db):
         for a in aretes:
             x = a.get("node") or {}
             slug, login = x.get("slug"), ((x.get("broadcaster") or {}).get("login") or "").lower()
+            nb = (((x.get("broadcaster") or {}).get("followers") or {}).get("totalCount"))
+            if login and nb is not None:
+                SUIVEURS[login] = nb
             if not slug or not login:
                 continue
             if slug in deja:
@@ -252,6 +256,23 @@ def est_gta6(jeu):
     return bool(re.search(r"\b(VI|6)\b", jeu or ""))
 
 
+def suiveurs(logins):
+    """Nombre d'abonnés Twitch des chaînes pas encore connues ce passage (une seule requête groupée)."""
+    manque = sorted({l.lower() for l in logins if l and l.lower() not in SUIVEURS})
+    for i in range(0, len(manque), 50):
+        paquet = manque[i:i + 50]
+        q = "{" + " ".join(f'u{j}:user(login:{json.dumps(l)}){{followers{{totalCount}}}}' for j, l in enumerate(paquet)) + "}"
+        try:
+            d = _http("https://gql.twitch.tv/gql", {"Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko"},
+                      json.dumps({"query": q}).encode())
+            for j, l in enumerate(paquet):
+                u = (d.get("data") or {}).get(f"u{j}") or {}
+                SUIVEURS[l] = ((u.get("followers") or {}).get("totalCount")) or 0
+        except Exception as e:
+            log(f"radar : abonnés illisibles ({type(e).__name__}: {str(e)[:100]})")
+    return SUIVEURS
+
+
 def _bonus(c, fiches, streamer, jeu, s):
     """Accord du streamer (x 1,5) ; avant la sortie, les streamers connus de la liste passent devant les inconnus."""
     f = fiches.get(streamer)
@@ -260,6 +281,9 @@ def _bonus(c, fiches, streamer, jeu, s):
     b = c.get("pilote", {}).get("bonus_streamer_connu", 1)
     if f is not None and not f.get("auto") and b > 1 and not est_gta6(jeu):
         s = s * b + 1000
+    # notoriété (consigne du 16/11 : les clips de streamers connus font plus de vues et font connaître la page),
+    # avant comme après la sortie : + poids x abonnés Twitch / 1000 (Michou, 2,4 M d'abonnés : + 4 800 avec le poids 2)
+    s += c.get("pilote", {}).get("bonus_notoriete", 0) * SUIVEURS.get((streamer or "").lower(), 0) / 1000
     return round(s, 1)
 
 
@@ -294,6 +318,7 @@ def tourner(jeu=None):
             clips += [x for x in categorie(c, [jeu] + jeux_en_attendant(c), db) if x["id"] not in vus]
 
     fiches = streamers()
+    suiveurs([x["streamer"] for x in clips] + list(fiches))
     # doublons : plusieurs spectateurs clippent souvent le même moment, on garde le plus vu
     clips.sort(key=lambda x: x["vues"], reverse=True)
     gardes = []

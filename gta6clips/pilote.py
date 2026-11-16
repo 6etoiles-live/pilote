@@ -178,6 +178,8 @@ def preparer_un(db, clip, c, R):
         _compteur_analyses(1)
         from .radar import est_gta6
         seuil = R["seuil_interet"] if est_gta6(clip.get("jeu")) else R.get("seuil_interet_avant_sortie", R["seuil_interet"])
+        if (clip["score"] or 0) >= R.get("score_star", 10**9):  # gros streamer : un point d'exigence en moins
+            seuil -= 1
         raison = barriere(a, {**R, "seuil_interet": seuil})
         if raison:
             maj(db, cid, statut="attente" if a.get("voie") == "regles" else "rejete", raison=raison,
@@ -365,7 +367,10 @@ def priorite(r, t=None):
         return 1000.0 if (prevu and (t - prevu).total_seconds() > 90 * 60) else 15.0
     cree = _date(r["cree_le"]) if r["cree_le"] else None
     age_h = (t - cree).total_seconds() / 3600 if cree else 12
-    return (r["interet"] or 0) * 10 + 15 * (r["inedit"] or 0) + 8 * math.log10(1 + max(0, r["score"] or 0)) - min(2 * age_h, 30)
+    # après la sortie, les découvertes du jeu (lieu, véhicule, mécanique) passent devant : consigne du 16/11
+    from .radar import sortie_du_jeu
+    poids_inedit = 30 if t >= sortie_du_jeu(config()) else 15
+    return (r["interet"] or 0) * 10 + poids_inedit * (r["inedit"] or 0) + 8 * math.log10(1 + max(0, r["score"] or 0)) - min(2 * age_h, 30)
 
 
 def expirer(db):
