@@ -259,8 +259,8 @@ def est_gta6(jeu):
 def suiveurs(logins):
     """Nombre d'abonnés Twitch des chaînes pas encore connues ce passage (une seule requête groupée)."""
     manque = sorted({l.lower() for l in logins if l and l.lower() not in SUIVEURS})
-    for i in range(0, len(manque), 50):
-        paquet = manque[i:i + 50]
+    for i in range(0, len(manque), 10):  # Twitch refuse (400) au-delà d environ 15 alias
+        paquet = manque[i:i + 10]
         q = "{" + " ".join(f'u{j}:user(login:{json.dumps(l)}){{followers{{totalCount}}}}' for j, l in enumerate(paquet)) + "}"
         try:
             d = _http("https://gql.twitch.tv/gql", {"Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko"},
