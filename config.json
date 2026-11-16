@@ -99,12 +99,12 @@
  "pilote": {
   "publier_avec": "aucun",
   "seuil_interet": 5,
-  "preparer_par_tour": 6,
+  "preparer_par_tour": 8,
   "analyses_max_par_jour": 300,
   "fraicheur_max_heures": 30,
   "heures_actives": [
-   "08:00",
-   "01:30"
+   "06:30",
+   "02:00"
   ],
   "carte_heure": "18:30",
   "jeux": [
@@ -116,30 +116,22 @@
     "ecart_min_minutes": 15
    },
    "instagram": {
-    "max_jour": 25,
+    "max_jour": 40,
     "ecart_min_minutes": 15
    }
   },
   "jeux_avant_sortie": [
    "Grand Theft Auto V"
   ],
-  "avant_sortie_clips_max_jour": 25,
+  "avant_sortie_clips_max_jour": 50,
   "radar_categorie": true,
   "seuil_interet_avant_sortie": 4,
   "bonus_streamer_connu": 2,
   "fraicheur_avant_sortie_heures": 170,
   "creneaux": [
    [
-    "07:30",
-    "09:00"
-   ],
-   [
-    "12:00",
-    "13:30"
-   ],
-   [
-    "17:00",
-    "01:00"
+    "07:00",
+    "02:00"
    ]
   ],
   "bonus_notoriete": 2,
