@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .commun import RACINE, TRAVAIL
 
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+from .commun import chrome
 AVATAR = RACINE / "marque" / "kit" / "avatar.svg"
 DEGRADE = "linear-gradient(90deg,#D263E9,#9B89F5 52%,#99CCFF)"
 BANDE_FLOU_Y = 600  # haut de la bande de jeu 4:3 (1080 x 810) en mise en page « flou »
@@ -49,7 +49,7 @@ def calque(streamer, mise_en_page):
     TRAVAIL.mkdir(parents=True, exist_ok=True)
     page = TRAVAIL / f"calque-{streamer}-{mise_en_page}.html"
     page.write_text(html, encoding="utf-8")
-    subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
+    subprocess.run([*chrome(), "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
                     "--default-background-color=00000000", "--window-size=1080,1920", f"--screenshot={png}",
                     page.as_uri()], capture_output=True, timeout=120)
     if not png.exists():

@@ -58,6 +58,34 @@ def police(nom):
     return f if f.exists() else RACINE / "polices" / nom
 
 
+def chrome():
+    """Commande de Chrome sans fenêtre : celui du Mac, sinon celui de la machine (Linux)."""
+    import shutil, sys
+    mac = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    if Path(mac).exists():
+        return [mac]
+    for nom in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
+        if shutil.which(nom):
+            return [shutil.which(nom), "--no-sandbox"]
+    return [mac]
+
+
+def encodeur_aac():
+    """AAC d'Apple sur le Mac (meilleur), AAC de ffmpeg ailleurs."""
+    import sys
+    return "aac_at" if sys.platform == "darwin" else "aac"
+
+
+def en_jpeg(png, jpg):
+    """PNG vers JPEG qualité haute (TikTok refuse le PNG pour les photos)."""
+    import shutil, subprocess
+    if shutil.which("sips"):
+        cmd = ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "95", str(png), "--out", str(jpg)]
+    else:
+        cmd = ["ffmpeg", "-y", "-v", "error", "-i", str(png), "-q:v", "2", str(jpg)]
+    subprocess.run(cmd, capture_output=True, check=True)
+
+
 def corbeille(f):
     """Jamais de suppression directe : le fichier va à la corbeille."""
     import shutil, time

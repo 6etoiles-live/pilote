@@ -13,7 +13,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from .commun import police as fichier_police, TRAVAIL, SOURCES, config, lancer, log, sonde, streamers
+from .commun import police as fichier_police, encodeur_aac, TRAVAIL, SOURCES, config, lancer, log, sonde, streamers
 from .habillage import BANDE_FLOU_Y, calque
 
 W, H = 1080, 1920
@@ -364,7 +364,7 @@ def rendre(source, sortie, mots, accroche, streamer, fiche=None, style=None, mot
                       f":measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true")
         cmd += ["-map", "0:a:0", "-af",
                 f"{norme},afade=t=in:d=0.03,afade=t=out:st={max(0, duree - 0.15):.2f}:d=0.15",
-                "-c:a", "aac_at", "-b:a", h["debit_audio"], "-ar", "48000"]
+                "-c:a", encodeur_aac(), "-b:a", h["debit_audio"], "-ar", "48000"]
     # qualité maximale (règle du propriétaire du 09/11) : débit constant autour de 28 Mbit/s, AAC 320k
     cmd += ["-c:v", "libx264", "-preset", "medium", "-profile:v", "high", "-b:v", h["debit_video"],
             "-minrate", h["debit_video"], "-maxrate", h["debit_video"], "-bufsize", "56M",

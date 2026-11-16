@@ -16,7 +16,7 @@ from pathlib import Path
 
 from .commun import police, RACINE, config, log, nettoyer_titre, streamers
 
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+from .commun import chrome
 KIT = RACINE / "marque" / "kit"
 SORTIE_JEU = dt.date(2026, 11, 19)
 NUIT, LAVANDE, CREME, MAGENTA = "#0F0C1A", "#CCC2F5", "#FFF9CB", "#D263E9"
@@ -97,7 +97,7 @@ def _rendre(contenu_html, sortie, h):
     page = sortie.with_suffix(".html")
     page.write_text(contenu_html, encoding="utf-8")
     try:
-        subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
+        subprocess.run([*chrome(), "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
                         f"--window-size=1080,{h}", f"--screenshot={sortie}", page.as_uri()], capture_output=True, timeout=120)
     except (OSError, subprocess.TimeoutExpired) as e:
         raise RuntimeError(f"carte non rendue : {sortie.name} ({e})") from e

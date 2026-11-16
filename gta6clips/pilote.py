@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 from . import analyse, infos, monter
-from .commun import corbeille, DONNEES, JOURNAL, base, config, log, maj, maintenant, paris, sonde, streamers
+from .commun import corbeille, en_jpeg, DONNEES, JOURNAL, base, config, log, maj, maintenant, paris, sonde, streamers
 from .diffuseurs import Diffusion
 
 DEFAUT = {
@@ -258,8 +258,7 @@ def cartes_du_jour():
     fil = next(x for x in pngs if x.stem.endswith("-fil"))
     # TikTok refuse le PNG pour les photos : JPEG qualité haute
     jpg = fil.with_suffix(".jpg")
-    subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "95", str(fil), "--out", str(jpg)],
-                   capture_output=True, check=True)
+    en_jpeg(fil, jpg)
     hh, mm = (int(x) for x in R["carte_heure"].split(":"))
     pas_avant = p.replace(hour=hh, minute=mm, second=0, microsecond=0)
     fin = p.replace(hour=23, minute=59, second=0, microsecond=0)
@@ -308,8 +307,7 @@ def cartes_programmees():
                                    fort=k.get("fort"), cle=k["cle"], legende=k["legende"])
             fil = next(x for x in pngs if x.stem.endswith("-fil"))
             jpg = fil.with_suffix(".jpg")
-            subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "95", str(fil), "--out", str(jpg)],
-                           capture_output=True, check=True)
+            en_jpeg(fil, jpg)
         except Exception as e:
             log(f"pilote : carte {k.get('cle')} en échec ({type(e).__name__}: {e})")
             continue

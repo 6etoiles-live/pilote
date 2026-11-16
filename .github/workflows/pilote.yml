@@ -13,14 +13,12 @@ permissions:
   contents: read
 jobs:
   passage:
-    runs-on: macos-15
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       GTA6_SORTIE: ${{ github.workspace }}/sortie
       GTA6_WHISPER: faster
       GTA6_PUBLIER: ${{ vars.PUBLIER || 'aucun' }}
-      HOMEBREW_NO_AUTO_UPDATE: "1"
-      HOMEBREW_NO_INSTALL_CLEANUP: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,11 +28,11 @@ jobs:
       - name: Outils
         run: |
           pip install -q -r requirements.txt
-          brew install -q ffmpeg-full
-          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
-          export PATH="$(brew --prefix ffmpeg-full)/bin:$PATH"
-          mkdir -p ~/Library/Fonts && cp polices/*.ttf ~/Library/Fonts/
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          mkdir -p ~/.local/share/fonts && cp polices/*.ttf ~/.local/share/fonts/ && fc-cache -f
+          google-chrome --version
           curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           ffmpeg -hide_banner -filters | grep -q " ass " || { echo "ffmpeg sans libass"; exit 1; }
       - name: Modèle de transcription
         uses: actions/cache@v4
