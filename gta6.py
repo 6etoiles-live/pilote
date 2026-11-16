@@ -234,7 +234,8 @@ def cmd_tourner(a):
             log("tourner : un passage est déjà en cours, celui-ci s'arrête")
             return
         if config().get("publication", {}).get("mode") == "auto":
-            etapes = (("radar", lambda: radar.tourner(a.jeu)), ("préparer", lambda: pilote.preparer(a.max)),
+            etapes = (("publier d'abord", pilote.publier_du),  # ce qui est prêt part sans attendre les analyses
+                      ("radar", lambda: radar.tourner(a.jeu)), ("préparer", lambda: pilote.preparer(a.max)),
                       ("cartes", pilote.cartes_du_jour), ("cartes infos", pilote.cartes_programmees), ("publier", pilote.publier_du), ("ménage", pilote.menage),
                       ("point", pilote.point))
         else:

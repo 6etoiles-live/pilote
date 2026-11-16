@@ -31,7 +31,10 @@
   "glitch argent",
   "money glitch",
   "mod menu",
-  "cheat"
+  "cheat",
+  "trailer",
+  "bande-annonce",
+  "bande annonce"
  ],
  "habillage": {
   "police": "Montserrat Black",
@@ -96,8 +99,8 @@
  "pilote": {
   "publier_avec": "aucun",
   "seuil_interet": 6,
-  "preparer_par_tour": 3,
-  "analyses_max_par_jour": 80,
+  "preparer_par_tour": 6,
+  "analyses_max_par_jour": 160,
   "fraicheur_max_heures": 30,
   "heures_actives": [
    "08:00",
@@ -109,17 +112,35 @@
   ],
   "plateformes": {
    "tiktok": {
-    "max_jour": 8,
-    "ecart_min_minutes": 75
+    "max_jour": 15,
+    "ecart_min_minutes": 15
    },
    "instagram": {
-    "max_jour": 6,
-    "ecart_min_minutes": 150
+    "max_jour": 25,
+    "ecart_min_minutes": 15
    }
   },
   "jeux_avant_sortie": [
    "Grand Theft Auto V"
   ],
-  "avant_sortie_clips_max_jour": 3
+  "avant_sortie_clips_max_jour": 25,
+  "radar_categorie": true,
+  "seuil_interet_avant_sortie": 5,
+  "bonus_streamer_connu": 2,
+  "fraicheur_avant_sortie_heures": 170,
+  "creneaux": [
+   [
+    "07:30",
+    "09:00"
+   ],
+   [
+    "12:00",
+    "13:30"
+   ],
+   [
+    "17:00",
+    "01:00"
+   ]
+  ]
  }
 }

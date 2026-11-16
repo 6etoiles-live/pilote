@@ -76,11 +76,29 @@ def debut_du_jour():
     return d if p >= d else d - dt.timedelta(days=1)
 
 
+def _creneaux(R):
+    """Créneaux de publication en minutes depuis 5 h (une journée va de 5 h à 5 h)."""
+    paires = R.get("creneaux") or [R["heures_actives"]]
+    out = []
+    for deb, fin in paires:
+        d, f = (((int(h.split(":")[0]) * 60 + int(h.split(":")[1])) - 300) % 1440 for h in (deb, fin))
+        out.append((d, f if f > d else 1440))
+    return out
+
+
+def _minute_du_jour(p):
+    return ((p.hour * 60 + p.minute) - 300) % 1440
+
+
 def dans_les_heures(R, p=None):
-    p = p or paris()
-    a, b = ([int(x) for x in h.split(":")] for h in R["heures_actives"])
-    m, ma, mb = p.hour * 60 + p.minute, a[0] * 60 + a[1], b[0] * 60 + b[1]
-    return ma <= m < mb if ma < mb else (m >= ma or m < mb)
+    m = _minute_du_jour(p or paris())
+    return any(d <= m < f for d, f in _creneaux(R))
+
+
+def minutes_restantes(R, p=None):
+    """Minutes de publication qui restent aujourd'hui, tous créneaux confondus."""
+    m = _minute_du_jour(p or paris())
+    return sum(max(0, f - max(m, d)) for d, f in _creneaux(R))
 
 
 # ---------- préparation ----------
@@ -154,7 +172,9 @@ def preparer_un(db, clip, c, R):
         a = analyse.analyser(source, clip["titre"], clip["streamer"], monter.texte_dit(mots), clip.get("jeu") or None,
                              recents=recents(db))
         _compteur_analyses(1)
-        raison = barriere(a, R)
+        from .radar import est_gta6
+        seuil = R["seuil_interet"] if est_gta6(clip.get("jeu")) else R.get("seuil_interet_avant_sortie", R["seuil_interet"])
+        raison = barriere(a, {**R, "seuil_interet": seuil})
         if raison:
             maj(db, cid, statut="attente" if a.get("voie") == "regles" else "rejete", raison=raison,
                 accroche=a.get("accroche"))
@@ -179,8 +199,13 @@ def preparer_un(db, clip, c, R):
             return None
         cree = _date(clip.get("cree_le")) or maintenant()
         expire = cree + dt.timedelta(hours=R["fraicheur_max_heures"])
-        from .radar import jeux_en_attendant, sortie_du_jeu
-        if clip.get("jeu") in jeux_en_attendant(c):  # un clip « en attendant » ne part plus une fois le jeu sorti
+        from .radar import est_gta6, sortie_du_jeu
+        if not est_gta6(clip.get("jeu")):  # un clip « en attendant » ne part plus une fois le jeu sorti
+            if maintenant() >= sortie_du_jeu(c):
+                a_la_corbeille(sortie, sortie.with_suffix(".txt"))
+                maj(db, cid, statut="rejete", raison="clip d'attente fini après la sortie du jeu")
+                return None
+            expire = cree + dt.timedelta(hours=R.get("fraicheur_avant_sortie_heures", R["fraicheur_max_heures"]))
             expire = min(expire, sortie_du_jeu(c))
         db.execute("""insert or replace into file (id, genre, ref, fichier, legende, streamer, accroche, interet, inedit,
                       score, pas_avant, expire_le, statut, ajoute_le) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
@@ -200,7 +225,7 @@ def preparer_un(db, clip, c, R):
 def preparer(maxi=None, jeux=None):
     c = config()
     R = reglages(c)
-    maxi = maxi or R["preparer_par_tour"]
+    maxi = max(maxi or 0, R["preparer_par_tour"])  # le réglage est un plancher (launchd lance avec --max 3)
     from .radar import jeux_en_attendant
     db = base()
     attente = jeux_en_attendant(c)
@@ -216,7 +241,8 @@ def preparer(maxi=None, jeux=None):
     if reste <= 0:
         log(f"pilote : plafond de {R['analyses_max_par_jour']} analyses atteint aujourd'hui")
         return 0
-    limite = _iso(maintenant() - dt.timedelta(hours=R["fraicheur_max_heures"] - 2))
+    fraicheur = R.get("fraicheur_avant_sortie_heures", R["fraicheur_max_heures"]) if attente else R["fraicheur_max_heures"]
+    limite = _iso(maintenant() - dt.timedelta(hours=fraicheur - 2))
     noirs = refuses()
     # diversité : pas plus de deux clips prêts du même streamer dans la file
     charges = {r["streamer"]: r["n"] for r in db.execute(
@@ -327,10 +353,12 @@ def cartes_programmees():
 def priorite(r, t=None):
     t = t or maintenant()
     if r["genre"] == "carte":
-        return 1000.0
+        # les clips d'abord (ce sont eux qui font les vues) ; une carte passe devant 90 min après son heure prévue
+        prevu = _date(r["pas_avant"]) if r["pas_avant"] else None
+        return 1000.0 if (prevu and (t - prevu).total_seconds() > 90 * 60) else 15.0
     cree = _date(r["cree_le"]) if r["cree_le"] else None
     age_h = (t - cree).total_seconds() / 3600 if cree else 12
-    return (r["interet"] or 0) * 10 + 15 * (r["inedit"] or 0) + 8 * math.log10(1 + max(0, r["score"] or 0)) - 2 * age_h
+    return (r["interet"] or 0) * 10 + 15 * (r["inedit"] or 0) + 8 * math.log10(1 + max(0, r["score"] or 0)) - min(2 * age_h, 30)
 
 
 def expirer(db):
@@ -395,10 +423,12 @@ def publier_du():
             regle = R["plateformes"][plat]
             faits = db.execute(f"select count(*) from publications where plateforme = ? and statut in ({marques}) "
                                "and le >= ?", (plat, *comptes, jour)).fetchone()[0]
-            if faits >= regle["max_jour"]:
+            glissant = db.execute(f"select count(*) from publications where plateforme = ? and statut in ({marques}) "
+                                  "and le >= ?", (plat, *comptes, _iso(t - dt.timedelta(hours=24)))).fetchone()[0]
+            if max(faits, glissant) >= regle["max_jour"]:  # journée de 5 h à 5 h et 24 h glissantes (limite TikTok)
                 continue
             # écart : au moins l'écart minimum, et assez pour étaler les posts restants jusqu'à la fin de la soirée
-            reste_min = (_fin_de_fenetre(R, p) - p).total_seconds() / 60
+            reste_min = minutes_restantes(R, p)
             ecart = max(regle["ecart_min_minutes"], 0.8 * reste_min / (regle["max_jour"] - faits))
             dernier = db.execute(f"select le, clip_id from publications where plateforme = ? and statut in ({marques}) "
                                  "order by le desc limit 1", (plat, *comptes)).fetchone()
@@ -413,6 +443,10 @@ def publier_du():
                                        and p.plateforme = ? and p.statut = 'echec') < 2""",
                                (_iso(t), _iso(t), plat, *comptes, plat)).fetchall()
             cands = [r for r in cands if r["streamer"] not in noirs]  # retrait demandé depuis la mise en file
+            recents_echecs = {x["clip_id"] for x in db.execute(
+                "select clip_id from publications where plateforme = ? and statut = 'echec' and le >= ?",
+                (plat, _iso(t - dt.timedelta(minutes=30))))}
+            cands = [r for r in cands if r["id"] not in recents_echecs]  # une panne ne brûle pas un clip en un passage
             if not cands:
                 continue
             # diversité : pas deux fois de suite le même streamer sur une plateforme, s'il y a un autre choix

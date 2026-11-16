@@ -4,7 +4,7 @@
 name: pilote
 on:
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    - cron: "7,37 * * * *"
   workflow_dispatch:
 concurrency:
   group: pilote
@@ -14,7 +14,7 @@ permissions:
 jobs:
   passage:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
     env:
       GTA6_SORTIE: ${{ github.workspace }}/sortie
       GTA6_WHISPER: faster
@@ -55,10 +55,16 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # sans état retrouvé, on ne publie pas (sauf au tout premier lancement, variable ETAT_INITIALISE absente)
           GTA6_PUBLIER: ${{ (steps.etat.outputs.cache-matched-key != '' || vars.ETAT_INITIALISE != '1') && (vars.PUBLIER || 'aucun') || 'aucun' }}
-        timeout-minutes: 22
+        timeout-minutes: 62
         run: |
           python -c "import os,json;[print('::add-mask::'+str(x)) for v in json.loads(os.environ.get('GTA6_SECRETS') or '{}').values() for x in (v.values() if isinstance(v,dict) else [v])]"
-          python gta6.py tourner --max 3
+          # GitHub ne lance les tâches planifiées qu'environ une fois par heure : chaque tâche enchaîne donc
+          # les passages pendant 50 minutes, et la suivante prend le relais (une seule à la fois).
+          fin=$(( $(date +%s) + 3000 ))
+          while [ "$(date +%s)" -lt "$fin" ]; do
+            python gta6.py tourner --max 3 || true
+            sleep 120
+          done
       - name: Point
         if: always()
         run: |

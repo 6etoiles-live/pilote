@@ -126,7 +126,8 @@ def liste_blanche(c, jeu, db):
     logins = [l for l, s in streamers().items() if not s.get("noir")]
 
     # 1. clips des dernières 24 h de chaque chaîne, par paquets de 10 chaînes (4 lancements en parallèle)
-    urls = [f"https://www.twitch.tv/{l}/clips?filter=clips&range=24hr" for l in logins]
+    periode = "7d" if en_plus else "24hr"  # avant la sortie : la semaine des chaînes connues
+    urls = [f"https://www.twitch.tv/{l}/clips?filter=clips&range={periode}" for l in logins]
     with ThreadPoolExecutor(max_workers=4) as ex:
         lots = list(ex.map(lambda u: _ytdlp_lot(["--flat-playlist", "-j"], u), _paquets(urls, 10)))
     par_chaine = {}
@@ -165,6 +166,46 @@ def liste_blanche(c, jeu, db):
     f.write_text(json.dumps(list(HORS_JEU)[-5000:]))
     log(f"radar liste blanche : {len(clips)} nouveaux clips « {' / '.join([jeu] + en_plus)} » sur {len(logins)} chaînes "
         f"({len(a_voir)} détaillés, {len(VUES_CONNUES)} revus)")
+    return clips
+
+
+def categorie(c, jeux, db):
+    """Clips français les plus vus des dernières 24 h de toute une catégorie, par l'interface publique
+    de Twitch (la même que le site, sans clé). Complète la liste blanche : toutes les chaînes y sont."""
+    deja = {r["id"] for r in db.execute("select id from clips")}
+    clips = []
+    for jeu in jeux:
+        q = ('query($n:String!){game(name:$n){clips(first:100,criteria:{languages:[%s],period:LAST_DAY,sort:VIEWS_DESC})'
+             '{edges{node{slug title viewCount durationSeconds createdAt broadcaster{login}}}}}}' % c["langue"].upper())
+        try:
+            for essai in (1, 2):  # Twitch répond parfois « service error » avec un code 200 : un second essai
+                d = _http("https://gql.twitch.tv/gql", {"Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko"},
+                          json.dumps({"query": q, "variables": {"n": jeu}}).encode())
+                if not d.get("errors"):
+                    break
+            if d.get("errors"):
+                raise RuntimeError(str(d["errors"])[:120])
+            aretes = (((d.get("data") or {}).get("game") or {}).get("clips") or {}).get("edges") or []
+        except Exception as e:  # la liste blanche reste là si cette porte se ferme
+            log(f"radar catégorie : {jeu} en échec ({type(e).__name__}: {str(e)[:120]})")
+            continue
+        n = 0
+        for a in aretes:
+            x = a.get("node") or {}
+            slug, login = x.get("slug"), ((x.get("broadcaster") or {}).get("login") or "").lower()
+            if not slug or not login:
+                continue
+            if slug in deja:
+                VUES_CONNUES[slug] = x.get("viewCount") or 0
+                continue
+            if (x.get("viewCount") or 0) < c["vues_min"]:
+                continue
+            clips.append({"id": slug, "url": f"https://clips.twitch.tv/{slug}", "streamer": login,
+                          "titre": x.get("title") or "", "jeu": jeu, "langue": c["langue"],
+                          "vues": x.get("viewCount") or 0, "duree": x.get("durationSeconds") or 0,
+                          "cree_le": (x.get("createdAt") or "").replace("Z", "+00:00"), "video_id": "", "vod_offset": None})
+            n += 1
+        log(f"radar catégorie : {n} nouveaux clips « {jeu} » ({len(aretes)} lus)")
     return clips
 
 
@@ -211,6 +252,17 @@ def est_gta6(jeu):
     return bool(re.search(r"\b(VI|6)\b", jeu or ""))
 
 
+def _bonus(c, fiches, streamer, jeu, s):
+    """Accord du streamer (x 1,5) ; avant la sortie, les streamers connus de la liste passent devant les inconnus."""
+    f = fiches.get(streamer)
+    if (f or {}).get("accord") in ("oui", "programme"):
+        s *= 1.5
+    b = c.get("pilote", {}).get("bonus_streamer_connu", 1)
+    if f is not None and not f.get("auto") and b > 1 and not est_gta6(jeu):
+        s = s * b + 1000
+    return round(s, 1)
+
+
 def verdict(c, clip, fiches):
     t = (clip["titre"] or "").lower()
     cree = _date(clip.get("cree_le"))
@@ -222,7 +274,7 @@ def verdict(c, clip, fiches):
         return "rejete", "streamer refusé"
     if any(m in t for m in c["mots_bannis"]):
         return "rejete", "triche ou fuite"
-    if any(m in t for m in c["mots_spoiler"]):
+    if est_gta6(clip.get("jeu")) and any(m in t for m in c["mots_spoiler"]):  # spoilers : seulement pour GTA 6
         return "rejete", "spoiler probable"
     if not (c["duree_min_s"] <= (clip["duree"] or 0) <= c["duree_max_s"]):
         return "rejete", f"durée {clip['duree']:.0f} s"
@@ -237,6 +289,9 @@ def tourner(jeu=None):
         clips = helix(c, jeu)
     else:
         clips = liste_blanche(c, jeu, db)
+        if c.get("pilote", {}).get("radar_categorie", False):
+            vus = {x["id"] for x in clips}
+            clips += [x for x in categorie(c, [jeu] + jeux_en_attendant(c), db) if x["id"] not in vus]
 
     fiches = streamers()
     # doublons : plusieurs spectateurs clippent souvent le même moment, on garde le plus vu
@@ -251,8 +306,7 @@ def tourner(jeu=None):
     nouveaux = 0
     for x in gardes:
         x["score"] = score(db, x["id"], x["vues"], x["cree_le"])
-        if fiches.get(x["streamer"], {}).get("accord") in ("oui", "programme"):
-            x["score"] *= 1.5
+        x["score"] = _bonus(c, fiches, x["streamer"], x["jeu"], x["score"])
         statut, raison = verdict(c, x, fiches)
         r = db.execute("select statut from clips where id = ?", (x["id"],)).fetchone()
         releve(db, x["id"], x["vues"])
@@ -268,10 +322,11 @@ def tourner(jeu=None):
             nouveaux += 1
     # clips déjà en base revus dans la liste d'une chaîne (repli sans API) : vues et vitesse mises à jour
     for cid, vues in VUES_CONNUES.items():
-        r = db.execute("select cree_le from clips where id = ?", (cid,)).fetchone()
+        r = db.execute("select cree_le, streamer, jeu from clips where id = ?", (cid,)).fetchone()
         if r:
             db.execute("update clips set vues = ?, score = ?, maj = ? where id = ?",
-                       (vues, score(db, cid, vues, r["cree_le"]), maintenant().isoformat(), cid))
+                       (vues, _bonus(c, fiches, r["streamer"], r["jeu"], score(db, cid, vues, r["cree_le"])),
+                        maintenant().isoformat(), cid))
             releve(db, cid, vues)
     VUES_CONNUES.clear()
     db.commit()
