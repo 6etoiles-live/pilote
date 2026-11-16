@@ -98,7 +98,7 @@
  "spectateurs_min_decouverte": 50,
  "pilote": {
   "publier_avec": "aucun",
-  "seuil_interet": 6,
+  "seuil_interet": 5,
   "preparer_par_tour": 6,
   "analyses_max_par_jour": 160,
   "fraicheur_max_heures": 30,
@@ -125,7 +125,7 @@
   ],
   "avant_sortie_clips_max_jour": 25,
   "radar_categorie": true,
-  "seuil_interet_avant_sortie": 5,
+  "seuil_interet_avant_sortie": 4,
   "bonus_streamer_connu": 2,
   "fraicheur_avant_sortie_heures": 170,
   "creneaux": [
