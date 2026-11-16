@@ -265,6 +265,8 @@ def suiveurs(logins):
         try:
             d = _http("https://gql.twitch.tv/gql", {"Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko"},
                       json.dumps({"query": q}).encode())
+            if not d.get("data"):  # « service error » : on ne note rien, le passage suivant relira
+                raise RuntimeError(str(d.get("errors"))[:100])
             for j, l in enumerate(paquet):
                 u = (d.get("data") or {}).get(f"u{j}") or {}
                 SUIVEURS[l] = ((u.get("followers") or {}).get("totalCount")) or 0

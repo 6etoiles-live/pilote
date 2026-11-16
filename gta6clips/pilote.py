@@ -178,7 +178,9 @@ def preparer_un(db, clip, c, R):
         _compteur_analyses(1)
         from .radar import est_gta6
         seuil = R["seuil_interet"] if est_gta6(clip.get("jeu")) else R.get("seuil_interet_avant_sortie", R["seuil_interet"])
-        if (clip["score"] or 0) >= R.get("score_star", 10**9):  # gros streamer : un point d'exigence en moins
+        from .radar import suiveurs
+        if suiveurs([clip["streamer"]]).get((clip["streamer"] or "").lower(), 0) >= R.get("abonnes_star", 10**12):
+            seuil -= 1  # gros streamer (abonnés Twitch) : un point d'exigence en moins
             seuil -= 1
         raison = barriere(a, {**R, "seuil_interet": seuil})
         if raison:
