@@ -181,7 +181,6 @@ def preparer_un(db, clip, c, R):
         from .radar import suiveurs
         if suiveurs([clip["streamer"]]).get((clip["streamer"] or "").lower(), 0) >= R.get("abonnes_star", 10**12):
             seuil -= 1  # gros streamer (abonnés Twitch) : un point d'exigence en moins
-            seuil -= 1
         raison = barriere(a, {**R, "seuil_interet": seuil})
         if raison:
             maj(db, cid, statut="attente" if a.get("voie") == "regles" else "rejete", raison=raison,
@@ -232,28 +231,46 @@ def preparer_un(db, clip, c, R):
 
 def refaire(db, c, R):
     """Remonte des clips déjà prêts (refaire.json, demande du propriétaire du 16/11 : Samia, Furax et Tatiana avec la cam).
-    Réanalyse sans seuil d'intérêt ; si le nouveau montage échoue, l'ancien reste dans la file."""
+    Réanalyse sans seuil d'intérêt, un seul essai par clip ; si le remontage échoue, l'ancien montage reste dans la file."""
     from .commun import RACINE, lire_json
     d = lire_json(RACINE / "refaire.json", {})
     R0 = {**R, "seuil_interet": 0, "seuil_interet_avant_sortie": 0}
     for cid in d.get("ids", []):
-        f = db.execute("select fichier, ajoute_le from file where id = ? and statut = 'pret'", (f"clip:{cid}",)).fetchone()
+        fid = f"clip:{cid}"
+        f = db.execute("select fichier, ajoute_le from file where id = ? and statut = 'pret'", (fid,)).fetchone()
         r = db.execute("select * from clips where id = ?", (cid,)).fetchone()
         if not f or not r or (f["ajoute_le"] or "") >= d.get("avant", ""):
             continue
         log(f"pilote : remontage de {cid}")
-        ancien = f["fichier"]
-        res = preparer_un(db, dict(r), c, R0)
-        if res == "pause":  # analyse indisponible : l'ancien montage reste, on retentera au passage suivant
-            maj(db, cid, statut="pret")
-            db.commit()
-            break
-        if res and str(res) != ancien and Path(ancien).exists():
-            a_la_corbeille(Path(ancien), Path(ancien).with_suffix(".txt"))
-        elif not res:  # échec : on remet le clip et l'ancien montage tels qu'ils étaient
-            maj(db, cid, statut="pret")
-            db.execute("update file set statut = 'pret' where id = ?", (f"clip:{cid}",))
+        ancien = Path(f["fichier"])
+        copie = ancien.with_name(ancien.stem + ".avant.mp4")
+        if ancien.exists():
+            shutil.copy2(ancien, copie)
+        # hors de la file pendant le remontage : ni publié, ni compté comme « déjà publié » par l'analyse
+        db.execute("update file set statut = 'remontage' where id = ?", (fid,))
         db.commit()
+        res = None
+        try:
+            res = preparer_un(db, dict(r), c, R0)
+        finally:
+            ok = res and res != "pause" and Path(str(res)).exists()
+            if ok:
+                if str(res) != str(ancien) and ancien.exists():
+                    a_la_corbeille(ancien, ancien.with_suffix(".txt"))
+                if copie.exists():
+                    a_la_corbeille(copie)
+            else:  # échec : l'ancien montage revient ; sauf panne d'analyse (pause), le clip n'est plus retenté
+                if copie.exists():
+                    shutil.move(str(copie), str(ancien))
+                maj(db, cid, statut="pret")
+                if res == "pause":
+                    db.execute("update file set statut = 'pret' where id = ?", (fid,))
+                else:
+                    db.execute("update file set statut = 'pret', ajoute_le = ? where id = ?", (_iso(maintenant()), fid))
+                log(f"pilote : remontage de {cid} raté, l'ancien montage reste")
+            db.commit()
+        if res == "pause":
+            break
 
 
 def preparer(maxi=None, jeux=None):
