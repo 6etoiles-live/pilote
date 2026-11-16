@@ -30,9 +30,12 @@ SCHEMA = {
         "inedit": {"type": "boolean"},
         "deja_vu": {"type": "boolean"},
         "raison": {"type": "string"},
+        "cam": {"type": "boolean"},
+        "cam_zone": {"type": "array", "items": {"type": "integer"}},
+        "cam_bandeau": {"type": "array", "items": {"type": "integer"}},
     },
     "required": ["image", "spoiler", "musique_sous_licence", "accroche", "mot_fort", "legende", "interet", "inedit",
-                 "deja_vu", "raison"],
+                 "deja_vu", "raison", "cam", "cam_zone", "cam_bandeau"],
     "additionalProperties": False,
 }
 
@@ -57,6 +60,9 @@ Réponds en JSON :
 - inedit : true si le clip montre une découverte du jeu (un lieu, un véhicule, un animal, une mécanique, une réaction à une nouveauté) ou une situation rare. Pour GTA 6, une découverte du monde ou du gameplay (jamais de l'histoire) rend le moment intéressant même sans blague : le premier regard sur un lieu, un véhicule, un animal ou une mécanique compte dans interet.
 - deja_vu : true si le sujet est le même qu'un des clips déjà publiés listés plus haut.
 - raison : une ligne qui justifie la note.
+- cam : true si on voit la webcam du streamer incrustée dans l'image du jeu (une petite vidéo de la personne réelle, souvent dans un coin), sur la première image.
+- cam_zone : [x, y, largeur, hauteur] en pixels de la première image (960 pixels de large) : le rectangle qui contient UNIQUEMENT la vidéo de la webcam, sans le cadre décoratif, sans le nom, sans la barre d'objectif ni le logo collés autour. Mesure au pixel près les bords où l'image de la pièce s'arrête. [0, 0, 0, 0] s'il n'y a pas de cam.
+- cam_bandeau : même format, le rectangle qui couvre la webcam ET tout ce qui y est collé (cadre, nom, barre de sub goal, logo ou bandeau de sponsor juste à côté). [0, 0, 0, 0] s'il n'y a pas de cam.
 """
 
 

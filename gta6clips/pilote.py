@@ -192,7 +192,7 @@ def preparer_un(db, clip, c, R):
         d = c["dossier_sortie"] / "A PUBLIER" / paris().strftime("%Y-%m-%d")
         d.mkdir(parents=True, exist_ok=True)
         sortie = d / f"{clip['streamer']}-{cid[:24]}.mp4"
-        monter.rendre(source, sortie, mots, a["accroche"], clip["streamer"], monter.fiche_streamer(clip["streamer"]),
+        monter.rendre(source, sortie, mots, a["accroche"], clip["streamer"], fiche_avec_cam(clip["streamer"], a),
                       mot_fort=a.get("mot_fort"))
         sortie.with_suffix(".txt").write_text(legende, encoding="utf-8")
         defaut = controler_rendu(sortie)
@@ -360,6 +360,40 @@ def cartes_programmees():
 
 
 # ---------- publication ----------
+
+def fiche_avec_cam(streamer, a):
+    """Cam repérée par l'analyse du clip (consigne du 16/11 : regarder à chaque clip s'il y a une cam).
+    Zones rendues sur une image de 960 px de large, notées ici dans le repère 1920x1080 du montage.
+    Sans cam repérée ou zone incohérente : la fiche du streamer (streamers.json), sinon le fond flou."""
+    fiche = dict(monter.fiche_streamer(streamer))
+    z = [2 * int(v) for v in (a.get("cam_zone") or [])]
+    if a.get("voie") in ("api", "cli") and a.get("cam") is False:
+        fiche["cam"] = None  # l'analyse ne voit pas de cam sur ce clip : fond flou, sans risque
+        return fiche
+    if not a.get("cam") or len(z) != 4:
+        return fiche
+    x, y, w, h = z
+    if not (240 <= w <= 1100 and 150 <= h <= 720 and 0.8 <= w / h <= 2.6 and x >= -4 and y >= -4
+            and x + w <= 1924 and y + h <= 1084):
+        log(f"pilote : zone de cam incohérente pour {streamer} ({z}), fiche gardée")
+        return fiche
+    x, y = max(0, x), max(0, y)
+    w, h = min(w, 1920 - x), min(h, 1080 - y)
+    m = fiche.get("cam")
+    if m:  # cam notée à la main au même endroit : plus précise (pas d'étiquette ni de cadre), on la garde
+        iw = max(0, min(x + w, m[0] + m[2]) - max(x, m[0]))
+        ih = max(0, min(y + h, m[1] + m[3]) - max(y, m[1]))
+        if iw * ih / float(w * h + m[2] * m[3] - iw * ih) >= 0.5:
+            return fiche
+    b = [2 * int(v) for v in (a.get("cam_bandeau") or [])]
+    if len(b) == 4 and b[0] <= x and b[1] <= y and b[0] + b[2] >= x + w and b[1] + b[3] >= y + h and b[2] <= 1300:
+        exclure = [max(0, b[0] - 8), max(0, b[1] - 8), b[2] + 16, b[3] + 16]
+    else:
+        exclure = [max(0, x - 16), max(0, y - 16), w + 32, h + 32]
+    # 4 px rognés sur chaque bord : jamais de liseré du cadre ni du jeu autour de la cam
+    fiche.update(cam=[x + 4, y + 4, w - 8, h - 8], exclure=exclure)
+    return fiche
+
 
 def priorite(r, t=None):
     t = t or maintenant()
