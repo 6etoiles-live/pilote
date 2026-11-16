@@ -171,6 +171,10 @@ def preparer_un(db, clip, c, R):
         mots = monter.transcrire(source, cid)
         a = analyse.analyser(source, clip["titre"], clip["streamer"], monter.texte_dit(mots), clip.get("jeu") or None,
                              recents=recents(db))
+        if a.get("voie") == "regles":  # Claude indisponible (limite d'abonnement, jeton) : le clip attend, on retentera
+            maj(db, cid, statut="attente", raison="pas d'analyse par Claude : jamais publié seul")
+            log(f"pilote : analyse indisponible, préparation suspendue jusqu'au passage suivant")
+            return "pause"
         _compteur_analyses(1)
         from .radar import est_gta6
         seuil = R["seuil_interet"] if est_gta6(clip.get("jeu")) else R.get("seuil_interet_avant_sortie", R["seuil_interet"])
@@ -247,7 +251,7 @@ def preparer(maxi=None, jeux=None):
     # diversité : pas plus de deux clips prêts du même streamer dans la file
     charges = {r["streamer"]: r["n"] for r in db.execute(
         "select streamer, count(*) n from file where statut = 'pret' and genre = 'clip' group by streamer")}
-    q = (f"select * from clips where statut in ('nouveau', 'telecharge') and cree_le >= ? "
+    q = (f"select * from clips where statut in ('nouveau', 'telecharge', 'attente') and cree_le >= ? "
          f"and jeu in ({','.join('?' * len(jeux))}) order by score desc limit 60")
     faits, vus, essais = 0, set(), 0
     plafond_passage = min(reste, 2 * maxi)  # chaque essai = téléchargement, whisper et une analyse Claude
@@ -259,7 +263,10 @@ def preparer(maxi=None, jeux=None):
             continue
         vus.add(s)
         essais += 1
-        if preparer_un(db, dict(r), c, R):
+        res = preparer_un(db, dict(r), c, R)
+        if res == "pause":
+            break
+        if res:
             faits += 1
     log(f"pilote : {faits} clip(s) ajouté(s) à la file ({essais} essayé(s))")
     return faits
