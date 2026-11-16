@@ -57,7 +57,7 @@ jobs:
             for f in clips.db analyses.json hors_jeu.json; do
               git show "origin/etat:$f" > "donnees/$f.tmp" 2>/dev/null && mv "donnees/$f.tmp" "donnees/$f" || rm -f "donnees/$f.tmp"
             done
-            echo "ok=1" >> "$GITHUB_OUTPUT"; echo "mémoire reprise depuis la branche etat"
+            if [ -s donnees/clips.db ]; then echo "ok=1" >> "$GITHUB_OUTPUT"; echo "mémoire reprise depuis la branche etat"; else echo "ok=0" >> "$GITHUB_OUTPUT"; echo "branche etat sans base"; fi
           else
             echo "ok=0" >> "$GITHUB_OUTPUT"; echo "pas de branche etat"
           fi
@@ -73,15 +73,19 @@ jobs:
           python -c "import os,json;[print('::add-mask::'+str(x)) for v in json.loads(os.environ.get('GTA6_SECRETS') or '{}').values() for x in (v.values() if isinstance(v,dict) else [v])]"
           # GitHub ne lance les tâches planifiées qu'environ une fois par heure : chaque tâche enchaîne donc
           # les passages pendant 40 minutes (le dernier a 20 minutes pour finir), et la suivante prend le relais.
-          sauver() {  # la mémoire part sur la branche etat après chaque passage : rien d'oublié si la tâche est coupée
+          cat > "$RUNNER_TEMP/sauver.sh" <<'SH'
+          sauver() {  # la mémoire part sur la branche etat : rien d'oublié si la tâche est coupée
+            [ -s donnees/clips.db ] || { echo "pas de base à sauver"; return; }
             d=$(mktemp -d)
             cp donnees/clips.db donnees/analyses.json donnees/hors_jeu.json "$d"/ 2>/dev/null || true
-            if grep -qa "sk_" "$d"/* 2>/dev/null; then echo "::warning::clé repérée dans la mémoire, pas de sauvegarde"; rm -rf "$d"; return; fi
+            if grep -Eqai 'sk_[0-9a-f]{20}|sk-an[t]-|/Use[r]s/|verv[i]er' "$d"/* 2>/dev/null; then echo "::warning::donnée sensible repérée dans la mémoire, pas de sauvegarde"; rm -rf "$d"; return; fi
             ( cd "$d" && git init -q && git checkout -q -b etat && git add -A \
               && git -c user.name=6etoiles-live -c user.email=6etoiles-live@users.noreply.github.com commit -q -m "mémoire du pilote" \
               && git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" etat ) || echo "::warning::sauvegarde de la mémoire en échec"
             rm -rf "$d"
           }
+          SH
+          . "$RUNNER_TEMP/sauver.sh"
           avant=$(grep -c "tourner : passage terminé" donnees/journal.log 2>/dev/null || true)
           fin=$(( $(date +%s) + 2400 ))
           while [ "$(date +%s)" -lt "$fin" ]; do
@@ -94,6 +98,8 @@ jobs:
           if tail -40 donnees/journal.log | grep -q "claude -p en échec"; then echo "::warning::analyse Claude en échec (jeton à refaire ?)"; fi
       - name: Point
         if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           { echo '```'; cat sortie/POINT.txt 2>/dev/null; echo; tail -25 donnees/journal.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           rm -rf donnees/sources donnees/travail donnees/*.verrou
@@ -111,6 +117,7 @@ jobs:
                   f.unlink(); n += 1
           print(f"{n} vidéo(s) déjà traitées retirées du stockage")
           PY
+          . "$RUNNER_TEMP/sauver.sh" 2>/dev/null && sauver || true
       - name: Cartes du jour (pour contrôle)
         if: always()
         uses: actions/upload-artifact@v4
