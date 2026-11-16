@@ -10,7 +10,7 @@ concurrency:
   group: pilote
   cancel-in-progress: false
 permissions:
-  contents: read
+  contents: write   # pour la branche « etat » (mémoire du pilote, poussée après chaque passage)
 jobs:
   passage:
     runs-on: ubuntu-latest
@@ -49,21 +49,44 @@ jobs:
             sortie
           key: etat-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: etat-
+      - name: Reprendre la mémoire (branche etat)
+        id: secours
+        run: |
+          mkdir -p donnees
+          if git fetch -q origin etat 2>/dev/null; then
+            for f in clips.db analyses.json hors_jeu.json; do
+              git show "origin/etat:$f" > "donnees/$f.tmp" 2>/dev/null && mv "donnees/$f.tmp" "donnees/$f" || rm -f "donnees/$f.tmp"
+            done
+            echo "ok=1" >> "$GITHUB_OUTPUT"; echo "mémoire reprise depuis la branche etat"
+          else
+            echo "ok=0" >> "$GITHUB_OUTPUT"; echo "pas de branche etat"
+          fi
       - name: Passage
         env:
           GTA6_SECRETS: ${{ secrets.GTA6_SECRETS }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # sans état retrouvé, on ne publie pas (sauf au tout premier lancement, variable ETAT_INITIALISE absente)
-          GTA6_PUBLIER: ${{ (steps.etat.outputs.cache-matched-key != '' || vars.ETAT_INITIALISE != '1') && (vars.PUBLIER || 'aucun') || 'aucun' }}
+          GTA6_PUBLIER: ${{ (steps.secours.outputs.ok == '1' || steps.etat.outputs.cache-matched-key != '' || vars.ETAT_INITIALISE != '1') && (vars.PUBLIER || 'aucun') || 'aucun' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         timeout-minutes: 62
         run: |
           python -c "import os,json;[print('::add-mask::'+str(x)) for v in json.loads(os.environ.get('GTA6_SECRETS') or '{}').values() for x in (v.values() if isinstance(v,dict) else [v])]"
           # GitHub ne lance les tâches planifiées qu'environ une fois par heure : chaque tâche enchaîne donc
           # les passages pendant 40 minutes (le dernier a 20 minutes pour finir), et la suivante prend le relais.
+          sauver() {  # la mémoire part sur la branche etat après chaque passage : rien d'oublié si la tâche est coupée
+            d=$(mktemp -d)
+            cp donnees/clips.db donnees/analyses.json donnees/hors_jeu.json "$d"/ 2>/dev/null || true
+            if grep -qa "sk_" "$d"/* 2>/dev/null; then echo "::warning::clé repérée dans la mémoire, pas de sauvegarde"; rm -rf "$d"; return; fi
+            ( cd "$d" && git init -q && git checkout -q -b etat && git add -A \
+              && git -c user.name=6etoiles-live -c user.email=6etoiles-live@users.noreply.github.com commit -q -m "mémoire du pilote" \
+              && git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" etat ) || echo "::warning::sauvegarde de la mémoire en échec"
+            rm -rf "$d"
+          }
           avant=$(grep -c "tourner : passage terminé" donnees/journal.log 2>/dev/null || true)
           fin=$(( $(date +%s) + 2400 ))
           while [ "$(date +%s)" -lt "$fin" ]; do
             python gta6.py tourner --max 6 || true
+            sauver
             if [ "$(date +%s)" -lt "$fin" ]; then sleep 120; fi
           done
           apres=$(grep -c "tourner : passage terminé" donnees/journal.log 2>/dev/null || true)
@@ -74,6 +97,20 @@ jobs:
         run: |
           { echo '```'; cat sortie/POINT.txt 2>/dev/null; echo; tail -25 donnees/journal.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           rm -rf donnees/sources donnees/travail donnees/*.verrou
+          # place : on ne garde que les vidéos encore à publier (le cache gratuit de GitHub est limité à 10 Go)
+          python - <<'PY'
+          import sqlite3, pathlib
+          base = pathlib.Path("donnees/clips.db")
+          garder = set()
+          if base.exists():
+              db = sqlite3.connect(base)
+              garder = {pathlib.Path(r[0]).resolve() for r in db.execute("select fichier from file where statut = 'pret' and fichier is not null")}
+          n = 0
+          for f in pathlib.Path("sortie").rglob("*.mp4"):
+              if f.resolve() not in garder:
+                  f.unlink(); n += 1
+          print(f"{n} vidéo(s) déjà traitées retirées du stockage")
+          PY
       - name: Cartes du jour (pour contrôle)
         if: always()
         uses: actions/upload-artifact@v4
