@@ -1,0 +1,125 @@
+{
+ "jeu": "Grand Theft Auto VI",
+ "langue": "fr",
+ "fenetre_heures": 6,
+ "duree_min_s": 8,
+ "duree_max_s": 60,
+ "vues_min": 30,
+ "clips_par_streamer_et_tour": 8,
+ "ecart_meme_moment_s": 75,
+ "dossier_sortie": "~/Movies/GTA6 CLIPS",
+ "mots_spoiler": [
+  "fin du jeu",
+  "ending",
+  "la fin",
+  "cinématique",
+  "cinematique",
+  "cutscene",
+  "boss final",
+  "mission finale",
+  "dernière mission",
+  "derniere mission",
+  "générique",
+  "generique",
+  "credits",
+  "spoil",
+  "twist"
+ ],
+ "mots_bannis": [
+  "leak",
+  "fuite",
+  "glitch argent",
+  "money glitch",
+  "mod menu",
+  "cheat"
+ ],
+ "habillage": {
+  "police": "Montserrat Black",
+  "police_sous_titres": "Montserrat Black",
+  "couleur_mot": "&H00E963D2",
+  "accroche_duree_s": 3.0,
+  "debit_video": "28M",
+  "debit_audio": "320k",
+  "loudness": -14,
+  "couleur_contour": "&H001A0C0F",
+  "accroche_casse": "majuscules",
+  "style_texte": "ombre",
+  "couleur_mot_fort": "&H00E963D2"
+ },
+ "publication": {
+  "mode": "auto",
+  "courts_par_jour": 5,
+  "heures": [
+   "08:30",
+   "12:15",
+   "17:30",
+   "19:30",
+   "21:45"
+  ],
+  "compilation_heure": "22:30",
+  "plateformes": [
+   "tiktok",
+   "instagram"
+  ],
+  "seulement_avec_accord": false
+ },
+ "hashtags_base": [
+  "gta6",
+  "gtavi",
+  "gta6fr",
+  "streamerfr",
+  "leonida",
+  "vicecity",
+  "gaming",
+  "twitchfr"
+ ],
+ "modele_claude": "claude-opus-5-5",
+ "age_max_heures": 36,
+ "marque": {
+  "nom": "6 Étoiles",
+  "pseudo": "6etoiles.live",
+  "couleurs": {
+   "nuit": "#0F0C1A",
+   "lavande": "#CCC2F5",
+   "creme": "#FFF9CB",
+   "rose_pale": "#FFB2C6",
+   "magenta": "#D263E9",
+   "violet": "#9B89F5",
+   "bleu_ciel": "#99CCFF"
+  },
+  "source_couleurs": "CSS de rockstargames.com/VI relevé le 11/11/2026"
+ },
+ "sortie_jeu": "2026-11-18T23:00:00Z",
+ "analyse_par": "auto",
+ "modele_cli": "sonnet",
+ "spectateurs_min_decouverte": 50,
+ "pilote": {
+  "publier_avec": "aucun",
+  "seuil_interet": 6,
+  "preparer_par_tour": 3,
+  "analyses_max_par_jour": 80,
+  "fraicheur_max_heures": 30,
+  "heures_actives": [
+   "08:00",
+   "01:30"
+  ],
+  "carte_heure": "18:30",
+  "jeux": [
+   "Grand Theft Auto VI"
+  ],
+  "plateformes": {
+   "tiktok": {
+    "max_jour": 8,
+    "ecart_min_minutes": 75
+   },
+   "instagram": {
+    "max_jour": 6,
+    "ecart_min_minutes": 150
+   }
+  },
+  "jeux_avant_sortie": [
+   "Grand Theft Auto V"
+  ],
+  "avant_sortie_clips_max_jour": 3
+ }
+}

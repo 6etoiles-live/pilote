@@ -1,0 +1,4 @@
+anthropic
+fonttools
+yt-dlp
+faster-whisper

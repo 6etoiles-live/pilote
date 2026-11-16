@@ -1,0 +1,213 @@
+{
+ "_lisez_moi": "Streamers suivis quand l'API Twitch n'est pas branchée (sinon le radar prend toute la catégorie GTA VI en français). accord : inconnu / demande / oui / non / programme (programme de clipping payé). cam : zone de la webcam dans l'image 1920x1080 du stream, [x, y, largeur, hauteur], ou null (montage sur fond flou). noir : true pour ne jamais le reprendre. exclure : zone à ne jamais montrer dans la partie jeu (cam + bandeau de sponsors), mêmes unités que cam.",
+ "streamers": [
+  {
+   "login": "squeezie",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "gotaga",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "kamet0",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "aminematue",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "zerator",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "locklear",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "michou",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "inoxtag",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "ponce",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "antoinedaniel",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "domingo",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "sardoche",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "jltomy",
+   "accord": "inconnu",
+   "cam": [
+    4,
+    8,
+    534,
+    288
+   ],
+   "exclure": [
+    0,
+    0,
+    542,
+    358
+   ]
+  },
+  {
+   "login": "mistermv",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "doigby",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "etoiles",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "bagherajones",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "alphacast",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "lebouseuh",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "rivenzi",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "maghla",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "chowh1",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "mastu",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "joueur_du_grenier",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "mannyy",
+   "accord": "inconnu",
+   "cam": null
+  },
+  {
+   "login": "anyme023",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "gom4rt",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "ultia",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "kenbogard",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "jirayalecochon",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "kaatsup",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "byilhann",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "nikof",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "fugu_fps",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "lutti",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "skyyart",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  },
+  {
+   "login": "xari",
+   "accord": "inconnu",
+   "cam": null,
+   "auto": "2026-11-12"
+  }
+ ]
+}

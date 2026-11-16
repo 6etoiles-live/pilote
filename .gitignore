@@ -1,0 +1,7 @@
+donnees/
+sortie/
+config.local.json
+__pycache__/
+.venv/
+*.log
+.DS_Store

@@ -1,0 +1,75 @@
+# Un passage du pilote toutes les 15 minutes, sur une machine de GitHub (rien à garder allumé).
+# Clés : secrets GTA6_SECRETS (JSON : zernio_api_key, zernio_comptes) et CLAUDE_CODE_OAUTH_TOKEN.
+# Variable PUBLIER : « aucun » (simulation, par défaut) ou « zernio » (publication réelle).
+name: pilote
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: pilote
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  passage:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      GTA6_SORTIE: ${{ github.workspace }}/sortie
+      GTA6_WHISPER: faster
+      GTA6_PUBLIER: ${{ vars.PUBLIER || 'aucun' }}
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Outils
+        run: |
+          pip install -q -r requirements.txt
+          brew install -q ffmpeg-full
+          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
+          export PATH="$(brew --prefix ffmpeg-full)/bin:$PATH"
+          mkdir -p ~/Library/Fonts && cp polices/*.ttf ~/Library/Fonts/
+          curl -fsSL https://claude.ai/install.sh | bash
+          ffmpeg -hide_banner -filters | grep -q " ass " || { echo "ffmpeg sans libass"; exit 1; }
+      - name: Modèle de transcription
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-large-v3-turbo-v1
+      - name: Reprendre l'état
+        id: etat
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            donnees
+            sortie
+          key: etat-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: etat-
+      - name: Passage
+        env:
+          GTA6_SECRETS: ${{ secrets.GTA6_SECRETS }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # sans état retrouvé, on ne publie pas (sauf au tout premier lancement, variable ETAT_INITIALISE absente)
+          GTA6_PUBLIER: ${{ (steps.etat.outputs.cache-matched-key != '' || vars.ETAT_INITIALISE != '1') && (vars.PUBLIER || 'aucun') || 'aucun' }}
+        timeout-minutes: 22
+        run: |
+          python -c "import os,json;[print('::add-mask::'+str(x)) for v in json.loads(os.environ.get('GTA6_SECRETS') or '{}').values() for x in (v.values() if isinstance(v,dict) else [v])]"
+          python gta6.py tourner --max 3
+      - name: Point
+        if: always()
+        run: |
+          { echo '```'; cat sortie/POINT.txt 2>/dev/null; echo; tail -25 donnees/journal.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          rm -rf donnees/sources donnees/travail donnees/*.verrou
+      - name: Garder l'état
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            donnees
+            sortie
+          key: etat-${{ github.run_id }}-${{ github.run_attempt }}
