@@ -235,6 +235,91 @@
         490,
         362
       ]
+    },
+    {
+      "login": "aenot",
+      "accord": "inconnu",
+      "auto": "2026-11-16",
+      "cam": [
+        0,
+        0,
+        536,
+        300
+      ],
+      "exclure": [
+        0,
+        0,
+        540,
+        340
+      ]
+    },
+    {
+      "login": "tatiana_tv",
+      "accord": "inconnu",
+      "auto": "2026-11-16",
+      "cam": [
+        10,
+        64,
+        350,
+        240
+      ],
+      "exclure": [
+        0,
+        0,
+        380,
+        340
+      ]
+    },
+    {
+      "login": "twincytv",
+      "accord": "inconnu",
+      "auto": "2026-11-16",
+      "cam": [
+        0,
+        0,
+        466,
+        256
+      ],
+      "exclure": [
+        0,
+        0,
+        470,
+        325
+      ]
+    },
+    {
+      "login": "furax22",
+      "accord": "inconnu",
+      "auto": "2026-11-16",
+      "cam": [
+        24,
+        72,
+        500,
+        214
+      ],
+      "exclure": [
+        0,
+        0,
+        540,
+        310
+      ]
+    },
+    {
+      "login": "khalid_erk",
+      "accord": "inconnu",
+      "auto": "2026-11-16",
+      "cam": [
+        20,
+        12,
+        450,
+        250
+      ],
+      "exclure": [
+        0,
+        0,
+        500,
+        290
+      ]
     }
   ]
 }
