@@ -18,6 +18,7 @@ jobs:
     env:
       GTA6_SORTIE: ${{ github.workspace }}/sortie
       GTA6_WHISPER: faster
+      TZ: Europe/Paris
       GTA6_PUBLIER: ${{ vars.PUBLIER || 'aucun' }}
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +64,14 @@ jobs:
         run: |
           { echo '```'; cat sortie/POINT.txt 2>/dev/null; echo; tail -25 donnees/journal.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           rm -rf donnees/sources donnees/travail donnees/*.verrou
+      - name: Cartes du jour (pour contrôle)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cartes
+          path: sortie/A PUBLIER/*/INFOS/*.jpg
+          retention-days: 1
+          if-no-files-found: ignore
       - name: Garder l'état
         if: always()
         uses: actions/cache/save@v4
