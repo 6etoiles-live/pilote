@@ -82,8 +82,10 @@ def en_jpeg(png, jpg):
     if shutil.which("sips"):
         cmd = ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "95", str(png), "--out", str(jpg)]
     else:
-        cmd = ["ffmpeg", "-y", "-v", "error", "-i", str(png), "-q:v", "2", str(jpg)]
+        cmd = ["ffmpeg", "-y", "-v", "error", "-i", str(png), "-q:v", "2", "-pix_fmt", "yuvj420p", str(jpg)]
     subprocess.run(cmd, capture_output=True, check=True)
+    if not Path(jpg).exists():
+        raise OSError(f"JPEG non produit : {jpg}")
 
 
 def corbeille(f):

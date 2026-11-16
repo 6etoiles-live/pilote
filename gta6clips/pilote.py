@@ -505,9 +505,12 @@ def sante():
     except FileNotFoundError:
         dernier = None
     lignes.append(f"dernier passage complet : {dernier[:16] if dernier else 'aucun'}")
-    r = subprocess.run(["launchctl", "print", f"gui/{subprocess.run(['id', '-u'], capture_output=True, text=True).stdout.strip()}/pilote.gta6clips"],
-                       capture_output=True, text=True)
-    lignes.append("launchd : " + ("chargé" if r.returncode == 0 else "PAS chargé"))
+    try:
+        r = subprocess.run(["launchctl", "print", f"gui/{subprocess.run(['id', '-u'], capture_output=True, text=True).stdout.strip()}/pilote.gta6clips"],
+                           capture_output=True, text=True)
+        lignes.append("launchd : " + ("chargé" if r.returncode == 0 else "PAS chargé"))
+    except OSError:
+        lignes.append("launchd : absent (machine sans launchd)")
     for x in db.execute("select statut, count(*) n from file group by statut"):
         lignes.append(f"file {x['statut']} : {x['n']}")
     jour = _iso(debut_du_jour())
