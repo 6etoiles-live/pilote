@@ -50,7 +50,7 @@ Sujets des clips déjà publiés par la page ces deux derniers jours (pour juger
 {recents}
 
 Réponds en JSON :
-- image : « cinematique » si on voit une scène cinématique (bandes noires, pas d'interface de jeu, caméra de film) ou si le streamer regarde une bande-annonce, une vidéo officielle de l'éditeur ou la vidéo de quelqu'un d'autre, « menu_ou_carte » pour un menu ou la carte, sinon « jeu_libre ».
+- image : « cinematique » si on voit une scène cinématique (bandes noires, pas d'interface de jeu, caméra de film) ou si le streamer regarde une bande-annonce, une vidéo officielle de l'éditeur ou la vidéo de quelqu'un d'autre, « menu_ou_carte » pour un menu ou la carte, « autre » si on voit de la nudité, un personnage dénudé ou une scène sexuelle (même dans le jeu, ou si l'accroche en parlerait : nudiste, strip-tease, etc.), sinon « jeu_libre ».
 - spoiler : true si le clip montre ou raconte la fin du jeu, une mission finale, une grosse révélation de l'histoire, ou une séquence de cinématiques.
 - musique_sous_licence : true seulement si la transcription contient les paroles d'une chanson enregistrée (morceau d'artiste, radio du jeu) qui couvre une bonne partie du clip. Ne compte pas : des joueurs qui chantent ou scandent eux-mêmes, une comptine, un lecteur de musique ou un titre de morceau affiché à l'écran (tu n'entends pas le son, tu ne vois que les images et la transcription). Dans le doute, false.
 - accroche : 2 à 7 mots en français, en majuscules, qui donnent envie de regarder sans mentir ni rien inventer, tirés de ce qui se passe vraiment (pas de « INCROYABLE », pas d'emoji, pas de point d'exclamation multiple, jamais de tiret long, de flèche ni de point médian). Orthographe et accords exacts (« AUX TROUSSES », pas « AU TROUSSE »).
