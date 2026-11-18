@@ -46,7 +46,7 @@ def preparer_un(db, clip, accroche_forcee=None, dossier="A VALIDER", mot_fort_fo
         sortie = sortie_dir / f"{clip['streamer']}-{cid[:24]}.mp4"
         mot_fort = mot_fort_force if mot_fort_force is not None else (None if accroche_forcee else a.get("mot_fort"))
         monter.rendre(source, sortie, mots, accroche, clip["streamer"], __import__("gta6clips.pilote", fromlist=["x"]).fiche_avec_cam(clip["streamer"], a),
-                      mot_fort=mot_fort)
+                      mot_fort=mot_fort, jeu=clip.get("jeu"))
         sortie.with_suffix(".txt").write_text(legende, encoding="utf-8")
         note = "" if a.get("interet", -1) < 0 else f" (intérêt {a['interet']}/10)"
         if a.get("musique_sous_licence"):

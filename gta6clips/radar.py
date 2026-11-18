@@ -261,7 +261,7 @@ def sortie_du_jeu(c):
 
 def est_gta6(jeu):
     import re
-    return bool(re.search(r"\b(VI|6)\b", jeu or ""))
+    return bool(re.search(r"\b(GTA|Grand Theft Auto)\s*(VI|6)\b", jeu or "", re.I))
 
 
 def seuil_vues(c, jeu):

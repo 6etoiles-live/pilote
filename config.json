@@ -48,7 +48,8 @@
   "couleur_contour": "&H001A0C0F",
   "accroche_casse": "majuscules",
   "style_texte": "ombre",
-  "couleur_mot_fort": "&H00E963D2"
+  "couleur_mot_fort": "&H00E963D2",
+  "accroche_tout_le_clip": true
  },
  "publication": {
   "mode": "auto",

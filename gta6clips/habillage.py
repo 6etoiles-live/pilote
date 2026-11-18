@@ -17,7 +17,7 @@ DEGRADE = "linear-gradient(90deg,#D263E9,#9B89F5 52%,#99CCFF)"
 BANDE_FLOU_Y = 600  # haut de la bande de jeu 4:3 (1080 x 810) en mise en page « flou »
 
 
-def _html(streamer, mise_en_page):
+def _html(streamer, mise_en_page, badge=None):
     if not AVATAR.exists():  # un clip sans le logo de la page ne part pas
         raise FileNotFoundError(f"avatar de la marque introuvable : {AVATAR} (lancer marque/logo_a.py)")
     avatar = AVATAR.read_text(encoding="utf-8")
@@ -28,20 +28,25 @@ def _html(streamer, mise_en_page):
                   f'<div style="position:absolute;left:0;right:0;top:{BANDE_FLOU_Y + 810}px;height:6px;background:{DEGRADE}"></div>')
     # pseudos longs (Twitch : 25 signes au plus) : le crédit rapetisse pour rester sous x 940
     taille = 32 if len(streamer) <= 16 else max(22, round(32 * 16 / len(streamer)))
+    # badge du jeu (18/11, le propriétaire : « pousser le côté GTA 6 ») : notre propre pastille, jamais le logo de Rockstar ;
+    # à droite de la ligne du crédit, bord droit à x 956 (zone commune : x 960 au plus)
+    pastille = "" if not badge else (
+        f'<div style="position:absolute;right:{1080 - 956}px;top:316px;padding:9px 20px 11px;border-radius:40px;'
+        f'background:#D263E9;font:900 34px Montserrat;letter-spacing:-1px;color:#fff;white-space:nowrap">{badge}</div>')
     return f"""<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{{margin:0;background:transparent}} .av svg{{width:100%;height:100%;display:block}}</style></head>
 <body><div style="position:relative;width:1080px;height:1920px">
 {filets}
 <div style="position:absolute;left:124px;top:300px;display:flex;align-items:center;gap:14px">
   <div class="av" style="width:86px;height:86px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 4px #0F0C1A">{avatar}</div>
-  <div style="padding:8px 22px 11px;border-radius:40px;background:rgba(15,12,26,.78);font:600 {taille}px Jost;color:#fff;white-space:nowrap;max-width:700px;overflow:hidden">
+  <div style="padding:8px 22px 11px;border-radius:40px;background:rgba(15,12,26,.78);font:600 {taille}px Jost;color:#fff;white-space:nowrap;max-width:{520 if badge else 700}px;overflow:hidden;text-overflow:ellipsis">
     twitch.tv/{streamer.lower()}</div>
-</div></div></body></html>"""
+</div>{pastille}</div></body></html>"""
 
 
-def calque(streamer, mise_en_page):
+def calque(streamer, mise_en_page, badge=None):
     """Chemin du PNG du calque (mis en cache tant que l'avatar et le texte ne changent pas)."""
-    html = _html(streamer, mise_en_page)
+    html = _html(streamer, mise_en_page, badge)
     cle = hashlib.sha1(html.encode()).hexdigest()[:10]
     png = TRAVAIL / f"calque-{streamer}-{mise_en_page}-{cle}.png"
     if png.exists():

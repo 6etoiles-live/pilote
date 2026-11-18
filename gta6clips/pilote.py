@@ -192,7 +192,7 @@ def preparer_un(db, clip, c, R):
         d.mkdir(parents=True, exist_ok=True)
         sortie = d / f"{clip['streamer']}-{cid[:24]}.mp4"
         monter.rendre(source, sortie, mots, a["accroche"], clip["streamer"], fiche_avec_cam(clip["streamer"], a),
-                      mot_fort=a.get("mot_fort"))
+                      mot_fort=a.get("mot_fort"), jeu=clip.get("jeu"))
         sortie.with_suffix(".txt").write_text(legende, encoding="utf-8")
         defaut = controler_rendu(sortie)
         if defaut:

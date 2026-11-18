@@ -13,7 +13,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from .commun import police as fichier_police, encodeur_aac, TRAVAIL, SOURCES, config, lancer, log, sonde, streamers
+from .commun import police as fichier_police, encodeur_aac, TRAVAIL, SOURCES, config, lancer, log, paris, sonde, streamers
 from .habillage import BANDE_FLOU_Y, calque
 
 W, H = 1080, 1920
@@ -229,7 +229,21 @@ def colorer(texte, mot_fort, couleur):
     return texte[:m.start()] + morceau + texte[m.end():]
 
 
-def ecrire_ass(chemin, mots, accroche, credit, mise_en_page, duree, decalage, h, mot_fort=None):
+def contexte_jeu(jeu, quand=None):
+    """Petite ligne de contexte au-dessus de l'accroche (18/11, le propriétaire : « on comprend pas trop sur le reel »).
+    Jour compté depuis la sortie en France (19/11/2026) ; le 18/11 (Nouvelle-Zélande), c'est aussi le premier jour."""
+    import datetime as dt
+    from .radar import est_gta6
+    if not est_gta6(jeu):
+        return ""
+    jour = ((quand or paris()) - dt.timedelta(hours=5)).date()  # journée du pilote : de 5 h à 5 h
+    n = max(1, (jour - dt.date(2026, 11, 19)).days + 1)
+    if n > 30:
+        return "SUR GTA 6"
+    return f"{'1ER' if n == 1 else str(n) + 'E'} JOUR SUR GTA 6"
+
+
+def ecrire_ass(chemin, mots, accroche, credit, mise_en_page, duree, decalage, h, mot_fort=None, contexte=""):
     pol = h["police"]
     # zone commune Instagram/TikTok (règle du 06/11) : texte entre x 120 et 960, y 285 à 1248, et sous y 840
     # rien à droite de x 780. Sous-titres centrés à y 795 (au-dessus de 840), crédit court à y 1235.
@@ -241,6 +255,8 @@ def ecrire_ass(chemin, mots, accroche, credit, mise_en_page, duree, decalage, h,
     # flou : entre la puce du crédit (fin à y 390) et la bande de jeu (y 600), moins le contour et l'ombre ;
     # empile : sur la cam, au-dessus de la couture (y 757)
     hauteur_acc = BANDE_FLOU_Y - 390 - 60 if mise_en_page == "flou" else 180
+    if contexte and mise_en_page == "flou":
+        hauteur_acc -= 46  # place pour la ligne de contexte entre le crédit et l'accroche
     lignes_accroche, taille_acc = ajuster_accroche(acc, hauteur_acc)
     # l'interlettrage du style est ignoré par le libass de ffmpeg 7.1 (mesuré le 11/11/2026 : 942 px au lieu
     # de 825) ; seule la balise \fsp dans chaque ligne serre vraiment les lettres
@@ -258,15 +274,23 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Accroche,{pol},{taille_acc},{STYLES_ACCROCHE[style].format(nuit=nuit)},0,0,0,0,100,100,-3,0,{BORDS_ACCROCHE[style]},5,0,0,0,1
 Style: Sous,{h['police_sous_titres']},76,&H00FFFFFF,&H00FFFFFF,{nuit},{nuit[:2]}{'40' if style != 'contour' else '00'}{nuit[4:]},0,0,0,0,100,100,-2,0,1,{9 if style == 'contour' else 3},{0 if style == 'contour' else 2},5,0,0,0,1
+Style: Contexte,Montserrat ExtraBold,42,&H00FFFFFF,&H00FFFFFF,{nuit},{nuit[:2]}40{nuit[4:]},0,0,0,0,100,100,-1,0,1,2,2,5,0,0,0,1
 Style: Credit,{pol},34,&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,3,0,5,0,0,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     ev = []
-    # accroche : arrive entière à la première image ; reste tout le clip en « flou », 3 s en « empile »
-    fin_acc = duree if mise_en_page == "flou" else h["accroche_duree_s"]
+    # accroche : arrive entière à la première image ; tout le clip (« flou », ou accroche_tout_le_clip), sinon 3 s
+    fin_acc = duree if (mise_en_page == "flou" or h.get("accroche_tout_le_clip")) else h["accroche_duree_s"]
     y_acc = (390 + BANDE_FLOU_Y) // 2 if mise_en_page == "flou" else 630
+    if contexte:
+        haut_bloc = round(len(lignes_accroche) * taille_acc * 0.92)
+        if mise_en_page == "flou":
+            y_acc += 23
+        y_ctx = y_acc - haut_bloc // 2 - 30
+        ctx = _esc(contexte).replace("GTA 6", f"{{\\1c{h.get('couleur_mot_fort', h['couleur_mot'])}}}GTA 6{{\\1c&H00FFFFFF}}")
+        ev.append(f"Dialogue: 2,{_t(0)},{_t(fin_acc)},Contexte,,0,0,0,,{{\\pos(540,{y_ctx})\\fsp-1}}{ctx}")
     texte_acc = colorer("\n".join(_esc(l) for l in lignes_accroche), _esc(censurer_texte(mot_fort or "")),
                         h.get("couleur_mot_fort", h["couleur_mot"])).replace("\n", "\\N")
     ev.append(f"Dialogue: 2,{_t(0)},{_t(fin_acc)},Accroche,,0,0,0,,{{\\pos(540,{y_acc})\\fsp-3}}{texte_acc}")
@@ -313,7 +337,7 @@ def mesure_volume(source, debut, cible):
         return None
 
 
-def rendre(source, sortie, mots, accroche, streamer, fiche=None, style=None, mot_fort=None, couleur_mot_fort=None):
+def rendre(source, sortie, mots, accroche, streamer, fiche=None, style=None, mot_fort=None, couleur_mot_fort=None, jeu=None):
     c = config()
     h = dict(c["habillage"], **({"style_texte": style} if style else {}),
              **({"couleur_mot_fort": couleur_mot_fort} if couleur_mot_fort else {}))
@@ -325,7 +349,8 @@ def rendre(source, sortie, mots, accroche, streamer, fiche=None, style=None, mot
     cam = fiche.get("cam")
     mise_en_page = "empile" if cam else "flou"
     ass = TRAVAIL / (Path(sortie).stem + ".ass")
-    ecrire_ass(ass, mots, accroche, f"twitch.tv/{streamer}", mise_en_page, duree, decalage, h, mot_fort)
+    contexte = contexte_jeu(jeu)
+    ecrire_ass(ass, mots, accroche, f"twitch.tv/{streamer}", mise_en_page, duree, decalage, h, mot_fort, contexte)
 
     if mise_en_page == "flou":
         filtre = (
@@ -354,7 +379,7 @@ def rendre(source, sortie, mots, accroche, streamer, fiche=None, style=None, mot
     ass_echappe = str(ass).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
     filtre += f"[v0][1:v]overlay=0:0:format=auto[v1];[v1]ass='{ass_echappe}',fps={fps},format=yuv420p[v]"
     cmd = ["ffmpeg", "-y", "-v", "error", "-ss", f"{decalage:.3f}", "-i", str(source),
-           "-loop", "1", "-i", str(calque(streamer, mise_en_page)),
+           "-loop", "1", "-i", str(calque(streamer, mise_en_page, "GTA 6" if contexte else None)),
            "-filter_complex", filtre, "-map", "[v]"]
     if info["audio"]:
         m = mesure_volume(source, decalage, h["loudness"])
