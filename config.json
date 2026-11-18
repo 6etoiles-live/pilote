@@ -130,7 +130,7 @@
     "ecart_min_minutes": 5,
     "sans_etalement": true,
     "rattrapage": false,
-    "pause_blocage_minutes": 60
+    "pause_blocage_minutes": 30
    }
   },
   "jeux_avant_sortie": [
