@@ -118,12 +118,15 @@
     "ecart_min_minutes": 15
    },
    "instagram": {
-    "max_jour": 50,
-    "ecart_min_minutes": 10
+    "max_jour": 80,
+    "ecart_min_minutes": 8,
+    "sans_etalement": true
    },
    "youtube": {
-    "max_jour": 30,
-    "ecart_min_minutes": 20
+    "max_jour": 80,
+    "ecart_min_minutes": 8,
+    "sans_etalement": true,
+    "rattrapage": true
    }
   },
   "jeux_avant_sortie": [

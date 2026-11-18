@@ -535,7 +535,8 @@ def publier_du():
                 continue
             # écart : au moins l'écart minimum, et assez pour étaler les posts restants jusqu'à la fin de la soirée
             reste_min = minutes_restantes(R, p)
-            ecart = max(regle["ecart_min_minutes"], 0.8 * reste_min / (regle["max_jour"] - faits))
+            ecart = (regle["ecart_min_minutes"] if regle.get("sans_etalement")  # poussée du 18/11 : au plus vite
+                     else max(regle["ecart_min_minutes"], 0.8 * reste_min / (regle["max_jour"] - faits)))
             dernier = db.execute(f"select le, clip_id from publications where plateforme = ? and statut in ({marques}) "
                                  "order by le desc limit 1", (plat, *comptes)).fetchone()
             if dernier and (t - _date(dernier["le"])).total_seconds() < ecart * 60:
@@ -548,6 +549,18 @@ def publier_du():
                                   and (select count(*) from publications p where p.clip_id = f.id
                                        and p.plateforme = ? and p.statut = 'echec') < 2""",
                                (_iso(t), _iso(t), plat, *comptes, plat)).fetchall()
+            if regle.get("rattrapage"):
+                # rattrapage (18/11, le propriétaire : YouTube reprend aussi les clips déjà publiés ailleurs, GTA V compris) :
+                # clips des 4 derniers jours sortis de la file, jamais envoyés sur cette plateforme, fichier encore là
+                deja = {r["id"] for r in cands}
+                cands = list(cands) + [r for r in db.execute(f"""select f.*, c.cree_le from file f left join clips c on c.id = f.ref
+                                  where f.statut = 'publie' and f.genre = 'clip' and f.ajoute_le > ?
+                                  and not exists (select 1 from publications p where p.clip_id = f.id
+                                                  and p.plateforme = ? and p.statut in ({marques}))
+                                  and (select count(*) from publications p where p.clip_id = f.id
+                                       and p.plateforme = ? and p.statut = 'echec') < 2""",
+                                  (_iso(t - dt.timedelta(days=4)), plat, *comptes, plat)).fetchall()
+                                       if r["id"] not in deja and Path(r["fichier"]).exists()]
             cands = [r for r in cands if r["streamer"] not in noirs  # retrait demandé depuis la mise en file
                      and diff.accepte(plat, r["fichier"])]
             recents_echecs = {x["clip_id"] for x in db.execute(
@@ -562,7 +575,12 @@ def publier_du():
                 x = db.execute("select streamer from file where id = ?", (dernier["clip_id"],)).fetchone()
                 dernier_streamer = x["streamer"] if x else None
             autres = [r for r in cands if r["streamer"] is None or r["streamer"] != dernier_streamer] or cands
-            choix = max(autres, key=lambda r: priorite(r, t))
+            from .radar import est_gta6
+            jeux = {r["id"]: (db.execute("select jeu from clips where id = ?", (r["ref"],)).fetchone() or {"jeu": ""})["jeu"]
+                    for r in autres if r["genre"] == "clip"}
+            # d'abord la file normale, puis le rattrapage GTA 6, puis le reste du rattrapage
+            choix = max(autres, key=lambda r: (r["statut"] == "pret", est_gta6(jeux.get(r["id"])) or r["genre"] != "clip",
+                                               priorite(r, t)))
             statut, detail, pid = diff.publier(plat, choix["fichier"], choix["legende"], ident=choix["id"])
             db.execute("insert into publications (clip_id, plateforme, statut, reponse, le, post_id) values (?,?,?,?,?,?)",
                        (choix["id"], plat, statut, detail, _iso(maintenant()), pid))
