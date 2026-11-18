@@ -127,10 +127,17 @@
    },
    "youtube": {
     "max_jour": 95,
-    "ecart_min_minutes": 5,
+    "ecart_min_minutes": 40,
     "sans_etalement": true,
     "rattrapage": false,
-    "pause_blocage_minutes": 30
+    "pause_blocage_minutes": 30,
+    "creneaux": [
+     [
+      "17:00",
+      "01:00"
+     ]
+    ],
+    "interet_min": 5
    }
   },
   "jeux_avant_sortie": [

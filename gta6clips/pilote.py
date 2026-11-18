@@ -536,6 +536,9 @@ def publier_du():
         jour = _iso(debut_du_jour())
         for plat in actives:
             regle = R["plateformes"][plat]
+            # créneau propre à la plateforme (18/11 : YouTube, une dizaine de Shorts par jour, réservés à la soirée)
+            if regle.get("creneaux") and not dans_les_heures({"creneaux": regle["creneaux"]}, p):
+                continue
             faits = db.execute(f"select count(*) from publications where plateforme = ? and statut in ({marques}) "
                                "and le >= ?", (plat, *comptes, jour)).fetchone()[0]
             glissant = db.execute(f"select count(*) from publications where plateforme = ? and statut in ({marques}) "
@@ -577,6 +580,8 @@ def publier_du():
                                        and p.plateforme = ? and p.statut = 'echec') < 2""",
                                   (_iso(t - dt.timedelta(days=4)), plat, *comptes, plat)).fetchall()
                                        if r["id"] not in deja and Path(r["fichier"]).exists()]
+            if regle.get("interet_min"):  # 18/11 : envois rares, on ne garde que les meilleurs clips
+                cands = [r for r in cands if r["genre"] == "clip" and (r["interet"] or 0) >= regle["interet_min"]]
             cands = [r for r in cands if r["streamer"] not in noirs  # retrait demandé depuis la mise en file
                      and diff.accepte(plat, r["fichier"])]
             recents_echecs = {x["clip_id"] for x in db.execute(
