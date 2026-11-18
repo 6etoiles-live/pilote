@@ -332,6 +332,9 @@ def preparer(maxi=None, jeux=None):
 # ---------- cartes Infos ----------
 
 def cartes_du_jour():
+    from .radar import sortie_du_jeu
+    if maintenant() >= sortie_du_jeu(config()):  # 18/11, le propriétaire : plus de « J-1 » ni de « demain » une fois le jeu sorti
+        return 0
     c = config()
     R = reglages(c)
     db = base()
@@ -363,6 +366,9 @@ def cartes_du_jour():
 
 def cartes_programmees():
     """Cartes Infos écrites à l'avance dans cartes.json (titre, texte, source obligatoire, jour, heure, légende)."""
+    from .radar import sortie_du_jeu
+    if maintenant() >= sortie_du_jeu(config()):  # 18/11, le propriétaire : plus de « J-1 » ni de « demain » une fois le jeu sorti
+        return 0
     from .commun import RACINE
     f = RACINE / "cartes.json"
     if not f.exists():
@@ -466,6 +472,11 @@ def expirer(db):
     t = _iso(maintenant())
     from .radar import est_gta6, fin_attente
     lignes = db.execute("select * from file where statut = 'pret' and expire_le < ?", (t,)).fetchall()
+    from .radar import sortie_du_jeu
+    if maintenant() >= sortie_du_jeu(config()):  # les cartes d'avant-sortie (compte à rebours, « demain ») ne partent plus
+        vus = {r["id"] for r in lignes}
+        lignes += [r for r in db.execute("select * from file where statut = 'pret' and genre = 'carte'").fetchall()
+                   if r["id"] not in vus]
     if maintenant() >= fin_attente(config()):
         # fin de l'attente (18/11, le propriétaire : « on oublie GTA 5, à fond sur GTA 6 ») : les clips d'un autre jeu
         # encore en file partent aussi, même si leur date d'expiration est plus tardive
