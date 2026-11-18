@@ -304,7 +304,7 @@ def preparer(maxi=None, jeux=None):
     charges = {r["streamer"]: r["n"] for r in db.execute(
         "select streamer, count(*) n from file where statut = 'pret' and genre = 'clip' group by streamer")}
     q = (f"select * from clips where statut in ('nouveau', 'telecharge', 'attente') and cree_le >= ? "
-         f"and jeu in ({','.join('?' * len(jeux))}) order by score desc limit 60")
+         f"and jeu in ({','.join('?' * len(jeux))}) order by (jeu = 'Grand Theft Auto VI') desc, score desc limit 60")
     faits, vus, essais = 0, set(), 0
     plafond_passage = min(reste, 2 * maxi)  # chaque essai = téléchargement, whisper et une analyse Claude
     for r in db.execute(q, [limite, *jeux]).fetchall():
