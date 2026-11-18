@@ -20,6 +20,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+from . import youtube
 from .commun import RACINE, config, log
 
 API = "https://zernio.com/api/v1"
@@ -161,13 +162,23 @@ class Diffusion:
         """Plateformes servies : toutes en simulation, seulement celles branchées en réel."""
         if self.simulation:
             return self.plateformes
-        return [p for p in self.plateformes if self.secret["zernio_comptes"].get(p)]
+        return [p for p in self.plateformes if (youtube.branche(self.secret) if p == "youtube"
+                                                 else self.secret["zernio_comptes"].get(p))]
+
+    @staticmethod
+    def accepte(plateforme, fichier):
+        """YouTube ne prend que les vidéos (les cartes photo restent pour TikTok et Instagram)."""
+        return plateforme != "youtube" or str(fichier).lower().endswith(".mp4")
 
     def publier(self, plateforme, fichier, texte, ident=None):
         """Renvoie (statut, détail, id du post). statut : publie | en_cours | simule | echec."""
         if self.simulation:
             return "simule", f"aurait publié sur {plateforme} : {Path(fichier).name}", ""
         try:
+            if plateforme == "youtube":
+                if not getattr(self, "_jeton_yt", None):
+                    self._jeton_yt = youtube.jeton_acces(self.secret)
+                return youtube.publier(self.secret, fichier, texte, self._jeton_yt)
             cle_unique = f"6etoiles-{plateforme}-{ident or uuid.uuid4().hex}"
             return publier_zernio(self.secret["zernio_api_key"], self.secret["zernio_comptes"][plateforme], plateforme,
                                   fichier, texte, cle_unique)

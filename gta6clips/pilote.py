@@ -538,7 +538,8 @@ def publier_du():
                                   and (select count(*) from publications p where p.clip_id = f.id
                                        and p.plateforme = ? and p.statut = 'echec') < 2""",
                                (_iso(t), _iso(t), plat, *comptes, plat)).fetchall()
-            cands = [r for r in cands if r["streamer"] not in noirs]  # retrait demandé depuis la mise en file
+            cands = [r for r in cands if r["streamer"] not in noirs  # retrait demandé depuis la mise en file
+                     and diff.accepte(plat, r["fichier"])]
             recents_echecs = {x["clip_id"] for x in db.execute(
                 "select clip_id from publications where plateforme = ? and statut = 'echec' and le >= ?",
                 (plat, _iso(t - dt.timedelta(minutes=30))))}
@@ -560,8 +561,8 @@ def publier_du():
             n += statut in comptes
         # un élément sort de la file quand chaque plateforme active l'a pris, ou l'a refusé deux fois
         for r in db.execute("select * from file where statut = 'pret'").fetchall():
-            restantes = [pl for pl in actives
-                         if not db.execute(f"select 1 from publications where clip_id = ? and plateforme = ? "
+            restantes = [pl for pl in actives if diff.accepte(pl, r["fichier"])
+                         and not db.execute(f"select 1 from publications where clip_id = ? and plateforme = ? "
                                            f"and statut in ({marques})", (r["id"], pl, *comptes)).fetchone()
                          and db.execute("select count(*) from publications where clip_id = ? and plateforme = ? "
                                         "and statut = 'echec'", (r["id"], pl)).fetchone()[0] < 2]

@@ -45,6 +45,11 @@ def config():
             secret = dict(secret, **json.loads(os.environ["GTA6_SECRETS"]))
         except (ValueError, TypeError):
             secret = {}  # clés illisibles : la publication retombe en simulation
+    if os.environ.get("YOUTUBE_SECRETS"):  # secret GitHub à part (deploiement/youtube_jeton.py)
+        try:
+            secret = dict(secret, **json.loads(os.environ["YOUTUBE_SECRETS"]))
+        except (ValueError, TypeError):
+            pass  # YouTube seul reste débranché
     c["secret"] = secret
     c["dossier_sortie"] = Path(os.path.expanduser(os.environ.get("GTA6_SORTIE") or c.get("dossier_sortie", "~/Movies/GTA6 CLIPS")))
     if os.environ.get("GTA6_PUBLIER"):

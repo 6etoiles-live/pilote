@@ -1,5 +1,5 @@
 # Le pilote en continu sur une machine de GitHub (rien à garder allumé) : passages enchaînés, deux lancements par heure.
-# Clés : secrets GTA6_SECRETS (JSON : zernio_api_key, zernio_comptes) et CLAUDE_CODE_OAUTH_TOKEN.
+# Clés : secrets GTA6_SECRETS (JSON : zernio_api_key, zernio_comptes), YOUTUBE_SECRETS (JSON, deploiement/youtube_jeton.py) et CLAUDE_CODE_OAUTH_TOKEN.
 # Variable PUBLIER : « aucun » (simulation, par défaut) ou « zernio » (publication réelle).
 name: pilote
 on:
@@ -66,12 +66,14 @@ jobs:
           GTA6_SECRETS: ${{ secrets.GTA6_SECRETS }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          YOUTUBE_SECRETS: ${{ secrets.YOUTUBE_SECRETS }}
           # sans état retrouvé, on ne publie pas (sauf au tout premier lancement, variable ETAT_INITIALISE absente)
           GTA6_PUBLIER: ${{ (steps.secours.outputs.ok == '1' || steps.etat.outputs.cache-matched-key != '' || vars.ETAT_INITIALISE != '1') && (vars.PUBLIER || 'aucun') || 'aucun' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         timeout-minutes: 62
         run: |
           python -c "import os,json;[print('::add-mask::'+str(x)) for v in json.loads(os.environ.get('GTA6_SECRETS') or '{}').values() for x in (v.values() if isinstance(v,dict) else [v])]"
+          python -c "import os,json;[print('::add-mask::'+str(v)) for v in json.loads(os.environ.get('YOUTUBE_SECRETS') or '{}').values()]"
           # GitHub ne lance les tâches planifiées qu'environ une fois par heure : chaque tâche enchaîne donc
           # les passages pendant 40 minutes (le dernier a 20 minutes pour finir), et la suivante prend le relais.
           cat > "$RUNNER_TEMP/sauver.sh" <<'SH'

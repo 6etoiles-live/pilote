@@ -119,6 +119,10 @@
    "instagram": {
     "max_jour": 50,
     "ecart_min_minutes": 10
+   },
+   "youtube": {
+    "max_jour": 20,
+    "ecart_min_minutes": 20
    }
   },
   "jeux_avant_sortie": [
