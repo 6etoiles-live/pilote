@@ -72,8 +72,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         timeout-minutes: 62
         run: |
-          python -c "import os,json;[print('::add-mask::'+str(x)) for v in json.loads(os.environ.get('GTA6_SECRETS') or '{}').values() for x in (v.values() if isinstance(v,dict) else [v])]"
-          python -c "import os,json;[print('::add-mask::'+str(v)) for v in json.loads(os.environ.get('YOUTUBE_SECRETS') or '{}').values()]"
+          python -c "import os,json;[print('::add-mask::'+str(x)) for v in json.loads(os.environ.get('GTA6_SECRETS') or '{}').values() for x in (v.values() if isinstance(v,dict) else [v])]" || true
+          python -c "import os,json;[print('::add-mask::'+str(v)) for v in json.loads(os.environ.get('YOUTUBE_SECRETS') or '{}').values()]" || true
           # GitHub ne lance les tâches planifiées qu'environ une fois par heure : chaque tâche enchaîne donc
           # les passages pendant 40 minutes (le dernier a 20 minutes pour finir), et la suivante prend le relais.
           cat > "$RUNNER_TEMP/sauver.sh" <<'SH'

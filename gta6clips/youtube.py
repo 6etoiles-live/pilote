@@ -49,7 +49,7 @@ def titre_et_texte(legende):
     suffixe = " #Shorts"
     if len(premiere) + len(suffixe) > 100:
         premiere = premiere[:100 - len(suffixe) - 1].rsplit(" ", 1)[0].rstrip(" ,.;:") + "…"
-    return premiere + suffixe, _propre(legende)[:4900]
+    return premiere + suffixe, _propre(legende).encode()[:4900].decode(errors="ignore")  # limite YouTube : 5 000 octets
 
 
 def publier(secret, fichier, legende, jeton=None):
