@@ -242,9 +242,15 @@ def _meme_moment(a, b, ecart):
 
 def jeux_en_attendant(c):
     """Avant la sortie, la page publie aussi quelques clips d'autres jeux GTA (pilote.jeux_avant_sortie)."""
-    if maintenant() >= sortie_du_jeu(c):
+    if maintenant() >= fin_attente(c):
         return []
     return list(c.get("pilote", {}).get("jeux_avant_sortie", []))
+
+
+def fin_attente(c):
+    """Fin des clips « en attendant » (minuit à Paris), distincte de la première heure officielle du jeu
+    (minuit en Nouvelle-Zélande, midi à Paris le 18/11) : l'après-midi du 18, les deux passent."""
+    return _date(c.get("fin_attente") or c.get("sortie_jeu", "2026-11-18T23:00:00Z"))
 
 
 def sortie_du_jeu(c):

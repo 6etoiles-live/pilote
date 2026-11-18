@@ -206,14 +206,14 @@ def preparer_un(db, clip, c, R):
             return None
         cree = _date(clip.get("cree_le")) or maintenant()
         expire = cree + dt.timedelta(hours=R["fraicheur_max_heures"])
-        from .radar import est_gta6, sortie_du_jeu
-        if not est_gta6(clip.get("jeu")):  # un clip « en attendant » ne part plus une fois le jeu sorti
-            if maintenant() >= sortie_du_jeu(c):
+        from .radar import est_gta6, fin_attente
+        if not est_gta6(clip.get("jeu")):  # un clip « en attendant » ne part plus une fois le jeu sorti en France
+            if maintenant() >= fin_attente(c):
                 a_la_corbeille(sortie, sortie.with_suffix(".txt"))
                 maj(db, cid, statut="rejete", raison="clip d'attente fini après la sortie du jeu")
                 return None
             expire = cree + dt.timedelta(hours=R.get("fraicheur_avant_sortie_heures", R["fraicheur_max_heures"]))
-            expire = min(expire, sortie_du_jeu(c))
+            expire = min(expire, fin_attente(c))
         db.execute("""insert or replace into file (id, genre, ref, fichier, legende, streamer, accroche, interet, inedit,
                       score, pas_avant, expire_le, statut, ajoute_le) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                    (f"clip:{cid}", "clip", cid, str(sortie), legende, clip["streamer"], a["accroche"], int(a["interet"]),
@@ -285,7 +285,8 @@ def preparer(maxi=None, jeux=None):
     db = base()
     attente = jeux_en_attendant(c)
     jeux = jeux or (R["jeux"] + attente)
-    if attente:  # avant la sortie : quelques clips « en attendant », pas plus
+    from .radar import sortie_du_jeu
+    if attente and maintenant() < sortie_du_jeu(c):  # avant la sortie : quelques clips « en attendant », pas plus
         n = db.execute("select count(*) from file where genre = 'clip' and ajoute_le >= ?",
                        (_iso(debut_du_jour()),)).fetchone()[0]
         maxi = min(maxi, max(0, R["avant_sortie_clips_max_jour"] - n))

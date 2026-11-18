@@ -92,15 +92,15 @@
   },
   "source_couleurs": "CSS de rockstargames.com/VI relevé le 11/11/2026"
  },
- "sortie_jeu": "2026-11-18T23:00:00Z",
+ "sortie_jeu": "2026-11-18T11:00:00Z",
  "analyse_par": "auto",
  "modele_cli": "sonnet",
  "spectateurs_min_decouverte": 50,
  "pilote": {
   "publier_avec": "aucun",
-  "seuil_interet": 5,
-  "preparer_par_tour": 8,
-  "analyses_max_par_jour": 300,
+  "seuil_interet": 4,
+  "preparer_par_tour": 10,
+  "analyses_max_par_jour": 500,
   "fraicheur_max_heures": 30,
   "heures_actives": [
    "06:30",
@@ -116,8 +116,8 @@
     "ecart_min_minutes": 15
    },
    "instagram": {
-    "max_jour": 40,
-    "ecart_min_minutes": 15
+    "max_jour": 50,
+    "ecart_min_minutes": 10
    }
   },
   "jeux_avant_sortie": [
@@ -130,11 +130,12 @@
   "fraicheur_avant_sortie_heures": 170,
   "creneaux": [
    [
-    "07:00",
-    "02:00"
+    "05:00",
+    "05:00"
    ]
   ],
   "bonus_notoriete": 2,
   "abonnes_star": 500000
- }
+ },
+ "fin_attente": "2026-11-18T23:00:00Z"
 }
