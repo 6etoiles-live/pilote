@@ -94,7 +94,7 @@ jobs:
           while [ "$(date +%s)" -lt "$fin" ]; do
             python gta6.py tourner --max 6 || true
             sauver
-            if [ "$(date +%s)" -lt "$fin" ]; then sleep 120; fi
+            if [ "$(date +%s)" -lt "$fin" ]; then sleep 60; python gta6.py publier || true; sleep 60; python gta6.py publier || true; fi
           done
           apres=$(grep -c "tourner : passage terminé" donnees/journal.log 2>/dev/null || true)
           if [ "${apres:-0}" -le "${avant:-0}" ]; then echo "aucun passage terminé pendant cette tâche"; exit 1; fi

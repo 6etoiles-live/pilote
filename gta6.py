@@ -197,6 +197,7 @@ def main():
     sp.add_parser("sante")
     sp.add_parser("file")
     sp.add_parser("diffusion")
+    sp.add_parser("publier")
     s = sp.add_parser("retirer"); s.add_argument("login")
     s = sp.add_parser("infos"); s.add_argument("genre", choices=["compte-a-rebours", "sortie", "live"])
     s.add_argument("--dossier"); s.add_argument("--tous", action="store_true", help="live : tous les jeux (essai)")
@@ -219,6 +220,10 @@ def main():
         cmd_file()
     elif a.cmd == "diffusion":
         cmd_diffusion()
+    elif a.cmd == "publier":  # publication seule, entre deux passages (18/11 : un post toutes les 5 min)
+        with Verrou() as libre:
+            if libre:
+                pilote.publier_du()
     elif a.cmd == "retirer":
         cmd_retirer(a.login)
     elif a.cmd == "infos":

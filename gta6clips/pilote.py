@@ -320,6 +320,11 @@ def preparer(maxi=None, jeux=None):
             break
         if res:
             faits += 1
+        db.commit()
+        try:  # 18/11 : un post toutes les 5 min demande de publier pendant la préparation, pas seulement à la fin
+            publier_du()
+        except Exception as e:
+            log(f"pilote : publication intermédiaire en échec ({type(e).__name__}: {e})")
     log(f"pilote : {faits} clip(s) ajouté(s) à la file ({essais} essayé(s))")
     return faits
 
@@ -533,10 +538,17 @@ def publier_du():
                                   "and le >= ?", (plat, *comptes, _iso(t - dt.timedelta(hours=24)))).fetchone()[0]
             if max(faits, glissant) >= regle["max_jour"]:  # journée de 5 h à 5 h et 24 h glissantes (limite TikTok)
                 continue
+            # plafond posé par la plateforme elle-même (18/11 : YouTube bloque la chaîne neuve après 10 Shorts) :
+            # on retente une fois par heure, sans compter d'échec contre le clip
+            if db.execute("select 1 from publications where plateforme = ? and statut = 'bloque' and le >= ?",
+                          (plat, _iso(t - dt.timedelta(minutes=regle.get("pause_blocage_minutes", 60))))).fetchone():
+                continue
             # écart : au moins l'écart minimum, et assez pour étaler les posts restants jusqu'à la fin de la soirée
             reste_min = minutes_restantes(R, p)
             ecart = (regle["ecart_min_minutes"] if regle.get("sans_etalement")  # poussée du 18/11 : au plus vite
                      else max(regle["ecart_min_minutes"], 0.8 * reste_min / (regle["max_jour"] - faits)))
+            if regle.get("palier") and glissant >= regle["palier"]:  # 18/11 : garder des posts pour la nuit de la sortie
+                ecart = max(ecart, regle.get("ecart_apres_palier", 15))
             dernier = db.execute(f"select le, clip_id from publications where plateforme = ? and statut in ({marques}) "
                                  "order by le desc limit 1", (plat, *comptes)).fetchone()
             if dernier and (t - _date(dernier["le"])).total_seconds() < ecart * 60:
@@ -582,6 +594,8 @@ def publier_du():
             choix = max(autres, key=lambda r: (r["statut"] == "pret", est_gta6(jeux.get(r["id"])) or r["genre"] != "clip",
                                                priorite(r, t)))
             statut, detail, pid = diff.publier(plat, choix["fichier"], choix["legende"], ident=choix["id"])
+            if statut == "echec" and "exceeded the number of videos" in (detail or ""):
+                statut = "bloque"
             db.execute("insert into publications (clip_id, plateforme, statut, reponse, le, post_id) values (?,?,?,?,?,?)",
                        (choix["id"], plat, statut, detail, _iso(maintenant()), pid))
             db.commit()

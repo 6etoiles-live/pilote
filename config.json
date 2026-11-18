@@ -119,15 +119,18 @@
     "ecart_min_minutes": 15
    },
    "instagram": {
-    "max_jour": 80,
-    "ecart_min_minutes": 8,
-    "sans_etalement": true
+    "max_jour": 95,
+    "ecart_min_minutes": 5,
+    "sans_etalement": true,
+    "palier": 70,
+    "ecart_apres_palier": 15
    },
    "youtube": {
-    "max_jour": 80,
-    "ecart_min_minutes": 8,
+    "max_jour": 95,
+    "ecart_min_minutes": 5,
     "sans_etalement": true,
-    "rattrapage": false
+    "rattrapage": false,
+    "pause_blocage_minutes": 60
    }
   },
   "jeux_avant_sortie": [
