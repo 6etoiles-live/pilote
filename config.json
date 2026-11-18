@@ -121,7 +121,7 @@
     "ecart_min_minutes": 10
    },
    "youtube": {
-    "max_jour": 20,
+    "max_jour": 30,
     "ecart_min_minutes": 20
    }
   },
@@ -142,5 +142,5 @@
   "bonus_notoriete": 2,
   "abonnes_star": 500000
  },
- "fin_attente": "2026-11-18T23:00:00Z"
+ "fin_attente": "2026-11-18T12:15:00Z"
 }

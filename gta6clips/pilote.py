@@ -459,7 +459,17 @@ def priorite(r, t=None):
 
 def expirer(db):
     t = _iso(maintenant())
-    for r in db.execute("select * from file where statut = 'pret' and expire_le < ?", (t,)).fetchall():
+    from .radar import est_gta6, fin_attente
+    lignes = db.execute("select * from file where statut = 'pret' and expire_le < ?", (t,)).fetchall()
+    if maintenant() >= fin_attente(config()):
+        # fin de l'attente (18/11, le propriétaire : « on oublie GTA 5, à fond sur GTA 6 ») : les clips d'un autre jeu
+        # encore en file partent aussi, même si leur date d'expiration est plus tardive
+        vus = {r["id"] for r in lignes}
+        lignes += [r for r in db.execute("""select f.* from file f join clips c on c.id = f.ref
+                                            where f.statut = 'pret' and f.genre = 'clip'""").fetchall()
+                   if r["id"] not in vus and not est_gta6(db.execute("select jeu from clips where id = ?",
+                                                                    (r["ref"],)).fetchone()["jeu"])]
+    for r in lignes:
         deja = db.execute("select 1 from publications where clip_id = ? and statut in ('publie', 'en_cours')",
                           (r["id"],)).fetchone()
         if not deja:  # publié nulle part : vidéo à la corbeille ; publié quelque part : gardée (retrait éventuel)
