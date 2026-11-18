@@ -141,8 +141,8 @@ def liste_blanche(c, jeu, db):
             if e.get("view_count") is not None:
                 VUES_CONNUES[slug] = e["view_count"]  # vitesse des clips déjà connus
             continue
-        if (e.get("view_count") or 0) >= c["vues_min"]:
-            par_chaine.setdefault(login, []).append(e)
+        if (e.get("view_count") or 0) >= min(c["vues_min"], c.get("vues_min_gta6", c["vues_min"])):
+            par_chaine.setdefault(login, []).append(e)  # catégorie encore inconnue : seuil le plus bas
 
     # 2. détail (catégorie, titre, date) des N plus vus de chaque chaîne, par paquets de 15 clips
     a_voir = []
@@ -159,6 +159,8 @@ def liste_blanche(c, jeu, db):
         if cat != jeu and cat not in en_plus:
             HORS_JEU[slug] = 1  # mémorisé pour ne pas le redemander au prochain passage
             continue
+        if (i.get("view_count") or 0) < seuil_vues(c, cat):
+            continue  # pas mémorisé : il sera revu quand il aura plus de vues
         clips.append({"id": slug, "url": i.get("webpage_url") or f"https://clips.twitch.tv/{slug}",
                       "streamer": login_de.get(slug) or (i.get("channel") or "").lower(), "titre": i.get("title") or "",
                       "jeu": cat, "langue": c["langue"], "vues": i.get("view_count") or 0, "duree": i.get("duration") or 0,
@@ -202,7 +204,7 @@ def categorie(c, jeux, db):
             if slug in deja:
                 VUES_CONNUES[slug] = x.get("viewCount") or 0
                 continue
-            if (x.get("viewCount") or 0) < c["vues_min"]:
+            if (x.get("viewCount") or 0) < seuil_vues(c, jeu):
                 continue
             clips.append({"id": slug, "url": f"https://clips.twitch.tv/{slug}", "streamer": login,
                           "titre": x.get("title") or "", "jeu": jeu, "langue": c["langue"],
@@ -260,6 +262,12 @@ def sortie_du_jeu(c):
 def est_gta6(jeu):
     import re
     return bool(re.search(r"\b(VI|6)\b", jeu or ""))
+
+
+def seuil_vues(c, jeu):
+    """Vues minimales pour retenir un clip. Au lancement de GTA 6, les clips sont tout neufs (7 à 18 vues à midi le
+    18/11) : seuil propre à GTA 6 (vues_min_gta6), l'analyse fait le tri ensuite."""
+    return c.get("vues_min_gta6", c["vues_min"]) if est_gta6(jeu) else c["vues_min"]
 
 
 def suiveurs(logins):

@@ -5,6 +5,7 @@
  "duree_min_s": 8,
  "duree_max_s": 60,
  "vues_min": 30,
+ "vues_min_gta6": 5,
  "clips_par_streamer_et_tour": 8,
  "ecart_meme_moment_s": 75,
  "dossier_sortie": "~/Movies/GTA6 CLIPS",
