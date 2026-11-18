@@ -46,6 +46,9 @@ def titre_et_texte(legende):
     lignes = [l for l in legende.split("\n") if l.strip()]
     premiere = _propre(lignes[0].strip()) if lignes else "GTA 6"
     premiere = re.sub(r"\s+#\S+", "", premiere).strip() or "GTA 6"
+    # recherche YouTube (18/11) : le titre commence par « GTA 6 » pour un clip GTA 6 qui ne le nomme pas
+    if "#gta6" in legende.lower() and not re.search(r"\bGTA\b", premiere, re.I):
+        premiere = "GTA 6 : " + premiere
     suffixe = " #Shorts"
     if len(premiere) + len(suffixe) > 100:
         premiere = premiere[:100 - len(suffixe) - 1].rsplit(" ", 1)[0].rstrip(" ,.;:") + "…"

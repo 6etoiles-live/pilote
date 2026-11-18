@@ -76,7 +76,8 @@
   "leonida",
   "vicecity",
   "gaming",
-  "twitchfr"
+  "twitchfr",
+  "gta6gameplay"
  ],
  "modele_claude": "claude-haiku-5-5",
  "age_max_heures": 36,
@@ -146,5 +147,6 @@
   "bonus_notoriete": 2,
   "abonnes_star": 500000
  },
- "fin_attente": "2026-11-18T12:15:00Z"
+ "fin_attente": "2026-11-18T12:15:00Z",
+ "appel_abonnement": "Abonne-toi pour ne rater aucun moment GTA 6 ⭐"
 }

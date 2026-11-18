@@ -58,7 +58,7 @@ Réponds en JSON :
 - legende : une phrase courte en français qui dit ce qui se passe, avec au plus un smiley, sans hashtag (ils sont ajoutés ensuite).
 - interet : de 0 à 10, la chance que ce moment fasse rire ou surprenne quelqu'un qui ne connaît pas le streamer. Sois exigeant : 7 et plus seulement si le moment se comprend sans contexte et tient en quelques secondes.
 - inedit : true si le clip montre une découverte du jeu (un lieu, un véhicule, un animal, une mécanique, une réaction à une nouveauté) ou une situation rare. Pour GTA 6, une découverte du monde ou du gameplay (jamais de l'histoire) rend le moment intéressant même sans blague : le premier regard sur un lieu, un véhicule, un animal ou une mécanique compte dans interet.
-- deja_vu : true si le sujet est le même qu'un des clips déjà publiés listés plus haut.
+- deja_vu : true seulement si c'est le même moment qu'un clip déjà publié listé plus haut (même streamer, même scène). Un thème proche (police, voiture, prison) chez un autre streamer n'est pas un doublon : false.
 - raison : une ligne qui justifie la note.
 - cam : true si on voit la webcam du streamer incrustée dans l'image du jeu (une petite vidéo de la personne réelle, souvent dans un coin), sur la première image.
 - cam_zone : [x, y, largeur, hauteur] en pixels de la première image (960 pixels de large) : le rectangle qui contient UNIQUEMENT la vidéo de la webcam, sans le cadre décoratif, sans le nom, sans la barre d'objectif ni le logo collés autour. Mesure au pixel près les bords où l'image de la pièce s'arrête. [0, 0, 0, 0] s'il n'y a pas de cam.
@@ -242,4 +242,7 @@ def legende_complete(c, base_legende, streamer, jeu=None):
         n = len(reste)
         choisis = [reste[k % n], reste[(k % n + 1 + (k // n) % (n - 1)) % n]] if n > 1 else reste  # deux différents
         tags = ["#gta6", "#gta6fr"] + [f"#{t}" for t in dict.fromkeys(choisis)] + [f"#{streamer}"]
+    appel = c.get("appel_abonnement", "")  # 18/11 : chaque post GTA 6 invite à s'abonner
+    if appel and jeu and re.search(r"\b(VI|6)\b", jeu):
+        base_legende = f"{base_legende}\n\n{appel}"
     return f"{base_legende}\n\n🎮 {streamer} en live sur twitch.tv/{streamer}\n\n{' '.join(tags)}"
