@@ -114,6 +114,12 @@ jobs:
           if base.exists():
               db = sqlite3.connect(base)
               garder = {pathlib.Path(r[0]).resolve() for r in db.execute("select fichier from file where statut = 'pret' and fichier is not null")}
+              # Top du jour (18/11) : les clips GTA 6 des 26 dernières heures restent disponibles pour la compilation
+              import datetime as dt
+              limite = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=26)).isoformat()
+              garder |= {pathlib.Path(r[0]).resolve() for r in db.execute(
+                  "select fichier from file where genre = 'clip' and statut = 'publie' and fichier is not null and ajoute_le >= ? "
+                  "and coalesce(note, 0) >= 4", (limite,))}
           n = 0
           for f in pathlib.Path("sortie").rglob("*.mp4"):
               if f.resolve() not in garder:

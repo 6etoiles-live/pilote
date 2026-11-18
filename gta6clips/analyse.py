@@ -33,15 +33,19 @@ SCHEMA = {
         "cam": {"type": "boolean"},
         "cam_zone": {"type": "array", "items": {"type": "integer"}},
         "cam_bandeau": {"type": "array", "items": {"type": "integer"}},
+        "debut_s": {"type": "number"},
+        "fin_s": {"type": "number"},
+        "note_6": {"type": "integer"},
     },
     "required": ["image", "spoiler", "musique_sous_licence", "accroche", "mot_fort", "legende", "interet", "inedit",
-                 "deja_vu", "raison", "cam", "cam_zone", "cam_bandeau"],
+                 "deja_vu", "raison", "cam", "cam_zone", "cam_bandeau", "debut_s", "fin_s", "note_6"],
     "additionalProperties": False,
 }
 
 CONSIGNE = """Tu prépares un clip vertical court tiré du live Twitch d'un streamer français qui joue à {jeu}.
 Streamer : {streamer}. Titre du clip donné par un spectateur : « {titre} ».
-Ce qu'il dit (transcription automatique, peut contenir des erreurs) :
+Le clip dure {duree} s. Ce qu'il dit (transcription automatique, peut contenir des erreurs ; le nombre entre
+crochets est la seconde du clip où la phrase commence) :
 {texte}
 
 Les images {images} sont prises à 10, 30, 50, 70 et 90 % du clip.
@@ -53,15 +57,17 @@ Réponds en JSON :
 - image : « cinematique » si on voit une scène cinématique (bandes noires, pas d'interface de jeu, caméra de film) ou si le streamer regarde une bande-annonce, une vidéo officielle de l'éditeur ou la vidéo de quelqu'un d'autre, « menu_ou_carte » pour un menu ou la carte, « autre » si on voit de la nudité, un personnage dénudé ou une scène sexuelle (même dans le jeu, ou si l'accroche en parlerait : nudiste, strip-tease, etc.), sinon « jeu_libre ».
 - spoiler : true si le clip montre ou raconte la fin du jeu, une mission finale, une grosse révélation de l'histoire, ou une séquence de cinématiques.
 - musique_sous_licence : true seulement si la transcription contient les paroles d'une chanson enregistrée (morceau d'artiste, radio du jeu) qui couvre une bonne partie du clip. Ne compte pas : des joueurs qui chantent ou scandent eux-mêmes, une comptine, un lecteur de musique ou un titre de morceau affiché à l'écran (tu n'entends pas le son, tu ne vois que les images et la transcription). Dans le doute, false.
-- accroche : 2 à 7 mots en français, en majuscules, qui donnent envie de regarder sans mentir ni rien inventer, tirés de ce qui se passe vraiment (pas de « INCROYABLE », pas d'emoji, pas de point d'exclamation multiple, jamais de tiret long, de flèche ni de point médian). Orthographe et accords exacts (« AUX TROUSSES », pas « AU TROUSSE »).
+- accroche : 2 à 7 mots en français, en majuscules, qui donnent envie de regarder sans mentir ni rien inventer, tirés de ce qui se passe vraiment. Elle doit APPORTER DU CONTEXTE OU UN POINT DE VUE que les images ne disent pas seules (l'enjeu, ce qui s'est passé avant, pourquoi c'est drôle ou rare), pas décrire l'action visible : « SON PREMIER BRAQUAGE TOURNE MAL » ou « 20 MIN À CHERCHER LA PLAGE » plutôt que « IL PERCUTE UN CAMION » (pas de « INCROYABLE », pas d'emoji, pas de point d'exclamation multiple, jamais de tiret long, de flèche ni de point médian). Orthographe et accords exacts (« AUX TROUSSES », pas « AU TROUSSE »).
 - mot_fort : le mot de l'accroche (ou deux mots liés, ex. « GTA 5 ») qui porte l'info importante, recopié tel quel ; il sera en rose. Un seul.
-- legende : une phrase courte en français qui dit ce qui se passe, avec au plus un smiley, sans hashtag (ils sont ajoutés ensuite).
+- legende : une phrase courte en français qui dit ce qui se passe, avec au plus un smiley, sans hashtag (ils sont ajoutés ensuite), puis à la ligne une question courte qui donne envie de répondre en commentaire (ex. « Tu aurais fait pareil ? »).
 - interet : de 0 à 10, la chance que ce moment fasse rire ou surprenne quelqu'un qui ne connaît pas le streamer. Sois exigeant : 7 et plus seulement si le moment se comprend sans contexte et tient en quelques secondes.
 - inedit : true si le clip montre une découverte du jeu (un lieu, un véhicule, un animal, une mécanique, une réaction à une nouveauté) ou une situation rare. Pour GTA 6, une découverte du monde ou du gameplay (jamais de l'histoire) rend le moment intéressant même sans blague : le premier regard sur un lieu, un véhicule, un animal ou une mécanique compte dans interet.
 - deja_vu : true seulement si c'est le même moment qu'un clip déjà publié listé plus haut (même streamer, même scène). Un thème proche (police, voiture, prison) chez un autre streamer n'est pas un doublon : false.
 - raison : une ligne qui justifie la note.
 - cam : true si on voit la webcam du streamer incrustée dans l'image du jeu (une petite vidéo de la personne réelle, souvent dans un coin), sur la première image.
 - cam_zone : [x, y, largeur, hauteur] en pixels de la première image (960 pixels de large) : le rectangle qui contient UNIQUEMENT la vidéo de la webcam, sans le cadre décoratif, sans le nom, sans la barre d'objectif ni le logo collés autour. Mesure au pixel près les bords où l'image de la pièce s'arrête. [0, 0, 0, 0] s'il n'y a pas de cam.
+- debut_s et fin_s : les secondes du clip à garder pour ne montrer que le moment fort, entre 8 et 20 s au total (25 s au plus si l'histoire l'exige) : commence juste avant que ça démarre (pas de longue mise en place), finis juste après la chute ou la réaction. Le moment doit rester compréhensible. Si tout le clip est utile et dure moins de 20 s : 0 et {duree}.
+- note_6 : notre note du moment, de 1 à 6 étoiles (6 = moment à ne pas rater, 3 = sympa, 1 = faible). Elle est affichée sur la vidéo, sois honnête et exigeant.
 - cam_bandeau : même format, le rectangle qui couvre la webcam ET tout ce qui y est collé (cadre, nom, barre de sub goal, logo ou bandeau de sponsor juste à côté). [0, 0, 0, 0] s'il n'y a pas de cam.
 """
 
@@ -151,7 +157,7 @@ def _via_cli(c, imgs, consigne):
     return d["structured_output"]
 
 
-def analyser(source, titre, streamer, texte, jeu=None, recents=None):
+def analyser(source, titre, streamer, texte, jeu=None, recents=None, duree=None):
     c = config()
     jeu = jeu or c["jeu"]
     cle = _cle(c)
@@ -159,7 +165,12 @@ def analyser(source, titre, streamer, texte, jeu=None, recents=None):
     if not voie:
         return dict(heuristique(titre, streamer, texte, jeu), indisponible=True)
     imgs = images_du_clip(source)
-    consigne = CONSIGNE.format(jeu=jeu, streamer=streamer, titre=titre, texte=texte or "(rien d'audible)",
+    if duree is None:
+        try:
+            duree = sonde(source)["duree"]
+        except Exception:
+            duree = 30.0
+    consigne = CONSIGNE.format(jeu=jeu, streamer=streamer, titre=titre, texte=texte or "(rien d'audible)", duree=f"{duree:.1f}",
                                images="jointes" if voie == "api" else "lues",
                                recents="\n".join(f"- {x}" for x in (recents or [])) or "(aucun)")
     if voie == "cli":

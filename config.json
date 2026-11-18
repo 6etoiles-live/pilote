@@ -50,8 +50,9 @@
   "style_texte": "ombre",
   "couleur_mot_fort": "&H00E963D2",
   "accroche_tout_le_clip": true,
-  "appel_video": "ABONNE-TOI POUR LA SUITE",
-  "appel_video_duree_s": 2.5
+  "appel_video": "TOP 5 DU JOUR À 19 H | ABONNE-TOI",
+  "appel_video_duree_s": 2.5,
+  "duree_max_s": 30
  },
  "publication": {
   "mode": "auto",
@@ -103,7 +104,7 @@
  "spectateurs_min_decouverte": 50,
  "pilote": {
   "publier_avec": "aucun",
-  "seuil_interet": 4,
+  "seuil_interet": 6,
   "preparer_par_tour": 10,
   "analyses_max_par_jour": 500,
   "fraicheur_max_heures": 30,
@@ -121,11 +122,10 @@
     "ecart_min_minutes": 15
    },
    "instagram": {
-    "max_jour": 95,
-    "ecart_min_minutes": 5,
-    "sans_etalement": true,
-    "palier": 70,
-    "ecart_apres_palier": 15
+    "max_jour": 20,
+    "ecart_min_minutes": 45,
+    "glissant": false,
+    "compter_depuis": "2026-11-18T19:30:00+00:00"
    },
    "youtube": {
     "max_jour": 95,
@@ -156,9 +156,19 @@
     "05:00"
    ]
   ],
-  "bonus_notoriete": 2,
-  "abonnes_star": 500000
+  "bonus_notoriete": 0.05,
+  "abonnes_star": 10000000
  },
  "fin_attente": "2026-11-18T12:15:00Z",
- "appel_abonnement": "Abonne-toi pour ne rater aucun moment GTA 6 ⭐"
+ "appel_abonnement": "Chaque soir à 19 h, le top 5 GTA 6 des streamers FR. Abonne-toi ⭐",
+ "compil": {
+  "active": true,
+  "heure": "19:00",
+  "nombre": 5,
+  "minimum": 3,
+  "monter_avant_min": 60,
+  "intro_s": 1.6,
+  "clip_max_s": 22,
+  "debit_video": "14M"
+ }
 }

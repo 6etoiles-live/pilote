@@ -206,6 +206,8 @@ def base():
         statut text default 'pret',
         ajoute_le text
     )""")
+    if "note" not in [r[1] for r in db.execute("pragma table_info(file)")]:
+        db.execute("alter table file add column note integer")  # note « 6 Étoiles » de l'analyse (18/11)
     return db
 
 

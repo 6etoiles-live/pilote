@@ -115,6 +115,43 @@ def texte_dit(mots):
     return " ".join(m["mot"] for m in mots)
 
 
+def texte_horodate(mots, pas=2.5):
+    """Transcription par morceaux avec la seconde de départ (« [12.4] ... ») : l'analyse choisit où couper (18/11)."""
+    lignes, cur, t0 = [], [], None
+    for m in mots:
+        t0 = m["debut"] if t0 is None else t0
+        cur.append(m["mot"])
+        if m["fin"] - t0 >= pas or m["mot"].endswith((".", "?", "!")):
+            lignes.append(f"[{t0:.1f}] " + " ".join(cur))
+            cur, t0 = [], None
+    if cur:
+        lignes.append(f"[{t0:.1f}] " + " ".join(cur))
+    return "\n".join(lignes)
+
+
+def _etoile(r):
+    """Contour d'une étoile à 5 branches en dessin ASS (\\p1), dans un carré de 2r, pointe en haut."""
+    import math
+    pts = []
+    for i in range(10):
+        a = -math.pi / 2 + i * math.pi / 5
+        rr = r if i % 2 == 0 else r * 0.45
+        pts.append((round(r + rr * math.cos(a)), round(r + rr * math.sin(a))))
+    return "m {} {} l ".format(*pts[0]) + " ".join(f"{x} {y}" for x, y in pts[1:])
+
+
+def coupe_valide(coupe, duree_source):
+    """(début, fin) proposés par l'analyse, ramenés dans le clip ; None s'ils sont inutilisables."""
+    try:
+        d0, d1 = float(coupe[0]), float(coupe[1])
+    except (TypeError, ValueError, IndexError):
+        return None
+    d0, d1 = max(0.0, d0), min(duree_source, d1)
+    if d1 - d0 < 6:
+        return None
+    return d0, d1
+
+
 # ---------- sous-titres ASS ----------
 
 def _t(s):
@@ -243,7 +280,7 @@ def contexte_jeu(jeu, quand=None):
     return f"{'1ER' if n == 1 else str(n) + 'E'} JOUR SUR GTA 6"
 
 
-def ecrire_ass(chemin, mots, accroche, credit, mise_en_page, duree, decalage, h, mot_fort=None, contexte=""):
+def ecrire_ass(chemin, mots, accroche, credit, mise_en_page, duree, decalage, h, mot_fort=None, contexte="", note=None):
     pol = h["police"]
     # zone commune Instagram/TikTok (règle du 06/11) : texte entre x 120 et 960, y 285 à 1248, et sous y 840
     # rien à droite de x 780. Sous-titres centrés à y 795 (au-dessus de 840), crédit court à y 1235.
@@ -316,11 +353,26 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     # appel à s'abonner dans la vidéo (18/11 : 200 vues par reel et aucun abonné, la légende n'est presque pas lue) :
     # les dernières secondes, dans la bande de jeu, sous les sous-titres
     appel = h.get("appel_video")
+    rose = h.get("couleur_mot_fort", h["couleur_mot"])
+    fin_appel = duree - h.get("appel_video_duree_s", 2.5)
     if appel and duree > 6:
-        deb = duree - h.get("appel_video_duree_s", 2.5)
-        txt = _esc(appel).replace("ABONNE-TOI", f"{{\\1c{h.get('couleur_mot_fort', h['couleur_mot'])}}}ABONNE-TOI{{\\1c&H00FFFFFF}}")
-        ev.append(f"Dialogue: 3,{_t(deb)},{_t(duree)},Appel,,0,0,0,,"
-                  f"{{\\pos(540,1090)\\fsp-1\\fad(120,0)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}}{txt}")
+        # « | » = retour à la ligne (le texte passe par _esc, qui neutralise les balises)
+        txt = "\\N".join(_esc(x.strip()) for x in appel.split("|"))
+        txt = txt.replace("ABONNE-TOI", f"{{\\1c{rose}}}ABONNE-TOI{{\\1c&H00FFFFFF}}")
+        ev.append(f"Dialogue: 3,{_t(fin_appel)},{_t(duree)},Appel,,0,0,0,,"
+                  f"{{\\pos(540,1110)\\fsp-1\\fad(120,0)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}}{txt}")
+    # note « 6 Étoiles » (18/11, plan abonnés : notre avis sur le moment, couche originale et signature du compte),
+    # six étoiles dont « note » en rose, au-dessus de l'appel, à la fin du clip
+    if note and duree > 6:
+        n = max(1, min(6, int(note)))
+        r, pas_x = 30, 74
+        x0 = 540 - (6 * pas_x - (pas_x - 2 * r)) // 2
+        forme = _etoile(r)
+        for i in range(6):
+            plein = i < n
+            couleur = f"\\1c{rose}\\1a&H00&" if plein else "\\1c&HFFFFFF&\\1a&H90&"
+            ev.append(f"Dialogue: 3,{_t(fin_appel)},{_t(duree)},Appel,,0,0,0,,"
+                      f"{{\\an7\\pos({x0 + i * pas_x},{990 - r})\\bord3\\shad4{couleur}\\fad(120,0)\\p1}}{forme}{{\\p0}}")
     Path(chemin).write_text(entete + "\n".join(ev) + "\n", encoding="utf-8")
 
 
@@ -334,9 +386,10 @@ def debut_utile(mots):
     return min(4.0, premier - 0.6) if premier > 3.0 else 0.0
 
 
-def mesure_volume(source, debut, cible):
+def mesure_volume(source, debut, cible, duree=None):
     """Premier passage de loudnorm : mesure, pour un second passage linéaire précis."""
-    r = subprocess.run(["ffmpeg", "-hide_banner", "-ss", f"{debut:.3f}", "-i", str(source), "-vn", "-af",
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-ss", f"{debut:.3f}", *(["-t", f"{duree:.3f}"] if duree else []),
+                        "-i", str(source), "-vn", "-af",
                         f"loudnorm=I={cible}:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"],
                        capture_output=True, text=True)
     bloc = r.stderr[r.stderr.rfind("{"): r.stderr.rfind("}") + 1]
@@ -346,20 +399,28 @@ def mesure_volume(source, debut, cible):
         return None
 
 
-def rendre(source, sortie, mots, accroche, streamer, fiche=None, style=None, mot_fort=None, couleur_mot_fort=None, jeu=None):
+def rendre(source, sortie, mots, accroche, streamer, fiche=None, style=None, mot_fort=None, couleur_mot_fort=None, jeu=None,
+           coupe=None, note=None):
     c = config()
     h = dict(c["habillage"], **({"style_texte": style} if style else {}),
              **({"couleur_mot_fort": couleur_mot_fort} if couleur_mot_fort else {}))
     info = sonde(source)
     decalage = debut_utile(mots)
     duree = info["duree"] - decalage
+    # coupe sur le moment fort choisie par l'analyse (18/11 : clips de 8 à 20 s, la complétion compte)
+    cv = coupe_valide(coupe, info["duree"]) if coupe else None
+    if cv:
+        decalage = max(0.0, cv[0] - 0.3)
+        duree = min(info["duree"], cv[1] + 0.4) - decalage
+    duree = min(duree, h.get("duree_max_s", 60))
+    mots = [m for m in mots if m["debut"] < decalage + duree]
     fps = min(60, round(info["fps"])) or 30
     fiche = fiche or {}
     cam = fiche.get("cam")
     mise_en_page = "empile" if cam else "flou"
     ass = TRAVAIL / (Path(sortie).stem + ".ass")
     contexte = contexte_jeu(jeu)
-    ecrire_ass(ass, mots, accroche, f"twitch.tv/{streamer}", mise_en_page, duree, decalage, h, mot_fort, contexte)
+    ecrire_ass(ass, mots, accroche, f"twitch.tv/{streamer}", mise_en_page, duree, decalage, h, mot_fort, contexte, note)
 
     if mise_en_page == "flou":
         filtre = (
@@ -391,7 +452,7 @@ def rendre(source, sortie, mots, accroche, streamer, fiche=None, style=None, mot
            "-loop", "1", "-i", str(calque(streamer, mise_en_page, "GTA 6" if contexte else None)),
            "-filter_complex", filtre, "-map", "[v]"]
     if info["audio"]:
-        m = mesure_volume(source, decalage, h["loudness"])
+        m = mesure_volume(source, decalage, h["loudness"], duree)
         norme = f"loudnorm=I={h['loudness']}:TP=-1.5:LRA=11"
         if m:
             norme += (f":measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}"
@@ -406,6 +467,70 @@ def rendre(source, sortie, mots, accroche, streamer, fiche=None, style=None, mot
             "-t", f"{duree:.3f}", str(sortie)]
     lancer(cmd, timeout=900)
     log(f"rendu {Path(sortie).name} ({duree:.1f} s, {mise_en_page})")
+    return sortie
+
+
+def compiler(elements, sortie, titre_haut, titre_bas):
+    """Top du jour (18/11) : carton d'ouverture de 1,6 s, puis les clips déjà montés du N°5 au N°1, chacun sans ses
+    dernières secondes (l'appel de fin) et avec son rang en grand au début. elements = [(fichier, rang, streamer)]."""
+    c = config()
+    h = c["habillage"]
+    reg = c.get("compil") or {}
+    rose = h.get("couleur_mot_fort", h["couleur_mot"])
+    nuit = h.get("couleur_contour", "&H001A0C0F")
+    intro = reg.get("intro_s", 1.6)
+    coupe_fin = h.get("appel_video_duree_s", 2.5)
+    morceaux, t = [], intro
+    for f, rang, streamer in elements:
+        d = sonde(f)["duree"]
+        garde = max(4.0, min(d - coupe_fin, reg.get("clip_max_s", 22)))
+        morceaux.append((f, rang, streamer, garde, t))
+        t += garde
+    total = t
+    ass = TRAVAIL / (Path(sortie).stem + ".ass")
+    TRAVAIL.mkdir(parents=True, exist_ok=True)
+    ev = [f"Dialogue: 1,{_t(0)},{_t(intro)},Titre,,0,0,0,,{{\\pos(540,880)\\fad(0,150)}}{_esc(titre_haut)}",
+          f"Dialogue: 1,{_t(0)},{_t(intro)},Titre,,0,0,0,,{{\\pos(540,1010)\\1c{rose}\\fad(0,150)}}{_esc(titre_bas)}"]
+    for f, rang, streamer, garde, debut in morceaux:
+        ev.append(f"Dialogue: 2,{_t(debut)},{_t(debut + 1.6)},Rang,,0,0,0,,"
+                  f"{{\\pos(540,1120)\\fscx60\\fscy60\\t(0,160,\\fscx100\\fscy100)\\fad(0,200)}}N°{rang}")
+    entete = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: {W}
+PlayResY: {H}
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Titre,Montserrat ExtraBold,92,&H00FFFFFF,&H00FFFFFF,{nuit},{nuit[:2]}00{nuit[4:]},0,0,0,0,100,100,-2,0,1,5,6,5,0,0,0,1
+Style: Rang,Montserrat ExtraBold,190,{rose},{rose},{nuit},{nuit[:2]}00{nuit[4:]},0,0,0,0,100,100,-4,0,1,8,9,5,0,0,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    ass.write_text(entete + "\n".join(ev) + "\n", encoding="utf-8")
+    cmd = ["ffmpeg", "-y", "-v", "error",
+           "-f", "lavfi", "-t", f"{intro:.3f}", "-i", f"color=c=0x0F0C1A:s={W}x{H}:r=30",
+           "-f", "lavfi", "-t", f"{intro:.3f}", "-i", "anullsrc=r=48000:cl=stereo"]
+    for f, *_ , garde, _d in morceaux:
+        cmd += ["-t", f"{garde:.3f}", "-i", str(f)]
+    filtre, paires = "", "[0:v][1:a]"
+    for i, (f, rang, streamer, garde, _d) in enumerate(morceaux):
+        k = i + 2
+        filtre += (f"[{k}:v]fps=30,scale={W}:{H},setsar=1,format=yuv420p[v{k}];"
+                   f"[{k}:a]aresample=48000,aformat=channel_layouts=stereo,afade=t=out:st={max(0, garde - 0.12):.2f}:d=0.12[a{k}];")
+        paires += f"[v{k}][a{k}]"
+    ass_echappe = str(ass).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+    filtre += (f"[0:v]format=yuv420p[v0];{paires.replace('[0:v]', '[v0]')}concat=n={len(morceaux) + 1}:v=1:a=1[cv][ca];"
+               f"[cv]ass='{ass_echappe}'[v]")
+    cmd += ["-filter_complex", filtre, "-map", "[v]", "-map", "[ca]",
+            "-c:v", "libx264", "-preset", "medium", "-profile:v", "high", "-b:v", reg.get("debit_video", "14M"),
+            "-maxrate", reg.get("debit_video", "14M"), "-bufsize", "28M", "-pix_fmt", "yuv420p",
+            "-c:a", encodeur_aac(), "-b:a", h["debit_audio"], "-ar", "48000", "-movflags", "+faststart",
+            "-t", f"{total:.3f}", str(sortie)]
+    lancer(cmd, timeout=1800)
+    log(f"rendu {Path(sortie).name} (top du jour, {total:.1f} s)")
     return sortie
 
 

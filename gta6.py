@@ -243,7 +243,7 @@ def cmd_tourner(a):
         if config().get("publication", {}).get("mode") == "auto":
             etapes = (("publier d'abord", pilote.publier_du),  # ce qui est prêt part sans attendre les analyses
                       ("radar", lambda: radar.tourner(a.jeu)), ("préparer", lambda: pilote.preparer(a.max)),
-                      ("cartes", pilote.cartes_du_jour), ("cartes infos", pilote.cartes_programmees), ("publier", pilote.publier_du), ("ménage", pilote.menage),
+                      ("cartes", pilote.cartes_du_jour), ("cartes infos", pilote.cartes_programmees), ("top du jour", pilote.compil_du_jour), ("publier", pilote.publier_du), ("ménage", pilote.menage),
                       ("point", pilote.point))
         else:
             etapes = (("validation", publier.relever_reponses), ("radar", lambda: radar.tourner(a.jeu)),

@@ -14,6 +14,7 @@ Un élément qui échoue deux fois sur une plateforme n'y est plus retenté.
 import datetime as dt
 import json
 import math
+import re
 import shutil
 import subprocess
 import time
@@ -169,7 +170,7 @@ def preparer_un(db, clip, c, R):
         source = monter.telecharger(clip["url"], cid)
         maj(db, cid, statut="telecharge", source=str(source))
         mots = monter.transcrire(source, cid)
-        a = analyse.analyser(source, clip["titre"], clip["streamer"], monter.texte_dit(mots), clip.get("jeu") or None,
+        a = analyse.analyser(source, clip["titre"], clip["streamer"], monter.texte_horodate(mots), clip.get("jeu") or None,
                              recents=recents(db))
         if a.get("voie") == "regles" and a.get("indisponible"):  # limite d'abonnement, jeton : le clip attend, on retentera
             maj(db, cid, statut="attente", raison="Claude indisponible (limite ou jeton) : retenté plus tard")
@@ -192,7 +193,8 @@ def preparer_un(db, clip, c, R):
         d.mkdir(parents=True, exist_ok=True)
         sortie = d / f"{clip['streamer']}-{cid[:24]}.mp4"
         monter.rendre(source, sortie, mots, a["accroche"], clip["streamer"], fiche_avec_cam(clip["streamer"], a),
-                      mot_fort=a.get("mot_fort"), jeu=clip.get("jeu"))
+                      mot_fort=a.get("mot_fort"), jeu=clip.get("jeu"),
+                      coupe=(a.get("debut_s"), a.get("fin_s")) if a.get("fin_s") else None, note=a.get("note_6"))
         sortie.with_suffix(".txt").write_text(legende, encoding="utf-8")
         defaut = controler_rendu(sortie)
         if defaut:
@@ -219,6 +221,8 @@ def preparer_un(db, clip, c, R):
                    (f"clip:{cid}", "clip", cid, str(sortie), legende, clip["streamer"], a["accroche"], int(a["interet"]),
                     int(bool(a.get("inedit"))), clip.get("score") or 0, None,
                     _iso(expire), "pret", _iso(maintenant())))
+        if a.get("note_6"):
+            db.execute("update file set note = ? where id = ?", (int(a["note_6"]), f"clip:{cid}"))
         maj(db, cid, statut="pret", sortie=str(sortie), accroche=a["accroche"], legende=legende,
             raison=f"intérêt {a['interet']}/10{', inédit' if a.get('inedit') else ''} : {a.get('raison', '')}"[:300])
         log(f"pilote : prêt {sortie.name} (intérêt {a['interet']}/10, {a['accroche']})")
@@ -418,6 +422,74 @@ def cartes_programmees():
     return n
 
 
+# ---------- Top 5 du jour ----------
+
+def compil_du_jour():
+    """Rendez-vous quotidien (18/11, plan abonnés validé par le propriétaire) : « JOUR N SUR GTA 6, LE TOP 5 DES STREAMERS FR »,
+    les 5 meilleurs clips GTA 6 des dernières 24 h (note 6 Étoiles, puis intérêt), streamers tous différents,
+    du N°5 au N°1. Montée dans l'heure qui précède l'heure prévue, publiée à cette heure sur chaque plateforme.
+    C'est notre classement : du contenu original au sens d'Instagram et de YouTube."""
+    c = config()
+    reg = c.get("compil") or {}
+    if not reg.get("active"):
+        return 0
+    from .radar import sortie_du_jeu, est_gta6
+    if maintenant() < sortie_du_jeu(c):
+        return 0
+    p = paris()
+    hh, mm = (int(x) for x in reg.get("heure", "19:00").split(":"))
+    prevu = p.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    if prevu.date() < dt.date(2026, 11, 19):  # premier Top le soir de la sortie en France
+        return 0
+    if not (prevu - dt.timedelta(minutes=reg.get("monter_avant_min", 60)) <= p <= prevu + dt.timedelta(hours=3)):
+        return 0
+    db = base()
+    fid = f"compil:{prevu.date().isoformat()}"
+    if db.execute("select 1 from file where id = ?", (fid,)).fetchone():
+        return 0
+    lignes = db.execute("""select f.*, c.jeu from file f join clips c on c.id = f.ref
+                           where f.genre = 'clip' and f.statut in ('pret', 'publie') and f.ajoute_le >= ?
+                           order by coalesce(f.note, 0) desc, f.interet desc, f.score desc""",
+                        (_iso(prevu - dt.timedelta(hours=24)),)).fetchall()
+    choisis, vus = [], set()
+    for r in lignes:
+        if r["streamer"] in vus or r["streamer"] in refuses() or not est_gta6(r["jeu"]) or not Path(r["fichier"]).exists():
+            continue
+        vus.add(r["streamer"])
+        choisis.append(r)
+        if len(choisis) == reg.get("nombre", 5):
+            break
+    if len(choisis) < reg.get("minimum", 3):
+        log(f"pilote : Top du jour reporté, {len(choisis)} clip(s) GTA 6 encore disponibles")
+        return 0
+    n = len(choisis)
+    jour = monter.contexte_jeu("Grand Theft Auto VI", prevu).replace(" SUR GTA 6", "").replace("1ER JOUR", "JOUR 1")
+    jour = re.sub(r"^(\d+)E JOUR$", r"JOUR \1", jour) if jour != "SUR GTA 6" else ""
+    d = c["dossier_sortie"] / "A PUBLIER" / prevu.strftime("%Y-%m-%d")
+    d.mkdir(parents=True, exist_ok=True)
+    sortie = d / f"top{n}-{prevu.strftime('%Y-%m-%d')}.mp4"
+    elements = [(choisis[i]["fichier"], i + 1, choisis[i]["streamer"]) for i in reversed(range(n))]  # N°5 ... N°1
+    monter.compiler(elements, sortie, f"{jour} SUR GTA 6".strip(), f"TOP {n} DES STREAMERS FR")
+    defaut = controler_rendu(sortie)
+    if defaut:
+        a_la_corbeille(sortie)
+        log(f"pilote : Top du jour refusé ({defaut})")
+        return 0
+    classement = "\n".join(f"N°{i + 1} {(choisis[i]['accroche'] or '').capitalize().replace('gta', 'GTA')} ({choisis[i]['streamer']})" for i in range(n))
+    credits = "\n".join(f"🎮 twitch.tv/{r['streamer']}" for r in choisis)
+    titre = f"{jour.capitalize() + ' sur GTA 6 : le' if jour else 'Le'} top {n} des streamers FR 🏆"
+    legende = (f"{titre}\n\n{classement}\n\nTon préféré ? Dis-le en commentaire 👇\n\n"
+               f"{c.get('appel_abonnement', '')}\n\n{credits}\n\n#gta6 #gta6fr #top{n} #streamerfr #gta6clips")
+    sortie.with_suffix(".txt").write_text(legende, encoding="utf-8")
+    db.execute("""insert into file (id, genre, ref, fichier, legende, streamer, accroche, interet, inedit, score,
+                  pas_avant, expire_le, statut, ajoute_le, note) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               (fid, "compil", fid, str(sortie), legende, None, f"TOP {n} DU JOUR", 10, 0, 0, _iso(prevu),
+                _iso(prevu + dt.timedelta(hours=5)), "pret", _iso(maintenant()), 6))
+    db.commit()
+    log(f"pilote : Top {n} du jour prêt pour {reg.get('heure', '19:00')} ({', '.join(r['streamer'] for r in choisis)})")
+    return 1
+
+
 # ---------- publication ----------
 
 def fiche_avec_cam(streamer, a):
@@ -456,6 +528,8 @@ def fiche_avec_cam(streamer, a):
 
 def priorite(r, t=None):
     t = t or maintenant()
+    if r["genre"] == "compil":  # le Top 5 du jour passe devant tout dès son heure (rendez-vous promis)
+        return 2000.0
     if r["genre"] == "carte":
         # les clips d'abord (ce sont eux qui font les vues) ; une carte passe devant 90 min après son heure prévue
         prevu = _date(r["pas_avant"]) if r["pas_avant"] else None
@@ -545,15 +619,22 @@ def publier_du():
         t = maintenant()
         p = paris()
         jour = _iso(debut_du_jour())
+        attente_top = db.execute("select 1 from file where genre = 'compil' and statut = 'pret' and pas_avant > ? "
+                                 "and pas_avant <= ?", (_iso(t), _iso(t + dt.timedelta(minutes=45)))).fetchone()
         for plat in actives:
+            if attente_top:  # 18/11 : le Top de 19 h part à l'heure, aucun clip ne passe juste avant
+                break
             regle = R["plateformes"][plat]
             # créneau propre à la plateforme (18/11 : YouTube, une dizaine de Shorts par jour, réservés à la soirée)
             if regle.get("creneaux") and not dans_les_heures({"creneaux": regle["creneaux"]}, p):
                 continue
+            # 18/11 : un nouveau plafond se compte à partir de sa date de départ (compter_depuis), pas sur le passé
+            depuis = max(jour, regle.get("compter_depuis") or jour)
             faits = db.execute(f"select count(*) from publications where plateforme = ? and statut in ({marques}) "
-                               "and le >= ?", (plat, *comptes, jour)).fetchone()[0]
-            glissant = db.execute(f"select count(*) from publications where plateforme = ? and statut in ({marques}) "
-                                  "and le >= ?", (plat, *comptes, _iso(t - dt.timedelta(hours=24)))).fetchone()[0]
+                               "and le >= ?", (plat, *comptes, depuis)).fetchone()[0]
+            glissant = 0 if regle.get("glissant") is False else db.execute(
+                f"select count(*) from publications where plateforme = ? and statut in ({marques}) and le >= ?",
+                (plat, *comptes, max(_iso(t - dt.timedelta(hours=24)), regle.get("compter_depuis") or ""))).fetchone()[0]
             if max(faits, glissant) >= regle["max_jour"]:  # journée de 5 h à 5 h et 24 h glissantes (limite TikTok)
                 continue
             # plafond posé par la plateforme elle-même (18/11 : YouTube bloque la chaîne neuve après 10 Shorts) :
@@ -592,7 +673,10 @@ def publier_du():
                                   (_iso(t - dt.timedelta(days=4)), plat, *comptes, plat)).fetchall()
                                        if r["id"] not in deja and Path(r["fichier"]).exists()]
             if regle.get("interet_min"):  # 18/11 : envois rares, on ne garde que les meilleurs clips
-                cands = [r for r in cands if r["genre"] == "clip" and (r["interet"] or 0) >= regle["interet_min"]]
+                cands = [r for r in cands if r["genre"] == "compil"
+                         or (r["genre"] == "clip" and (r["interet"] or 0) >= regle["interet_min"])]
+            cands = [r for r in cands if r["genre"] != "compil"
+                     or not set(re.findall(r"twitch\.tv/(\w+)", r["legende"] or "")) & set(noirs)]
             cands = [r for r in cands if r["streamer"] not in noirs  # retrait demandé depuis la mise en file
                      and diff.accepte(plat, r["fichier"])]
             recents_echecs = {x["clip_id"] for x in db.execute(
