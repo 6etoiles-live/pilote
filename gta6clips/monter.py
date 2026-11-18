@@ -276,6 +276,7 @@ Style: Accroche,{pol},{taille_acc},{STYLES_ACCROCHE[style].format(nuit=nuit)},0,
 Style: Sous,{h['police_sous_titres']},76,&H00FFFFFF,&H00FFFFFF,{nuit},{nuit[:2]}{'40' if style != 'contour' else '00'}{nuit[4:]},0,0,0,0,100,100,-2,0,1,{9 if style == 'contour' else 3},{0 if style == 'contour' else 2},5,0,0,0,1
 Style: Contexte,Montserrat ExtraBold,42,&H00FFFFFF,&H00FFFFFF,{nuit},{nuit[:2]}40{nuit[4:]},0,0,0,0,100,100,-1,0,1,2,2,5,0,0,0,1
 Style: Credit,{pol},34,&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,3,0,5,0,0,0,1
+Style: Appel,Montserrat ExtraBold,58,&H00FFFFFF,&H00FFFFFF,{nuit},{nuit[:2]}00{nuit[4:]},0,0,0,0,100,100,-1,0,1,4,5,5,0,0,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -312,6 +313,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 morceaux.append(f"{{\\1c{couleur_mot}}}{mot}{{\\1c&H00FFFFFF}}" if j == i else mot)
             txt = " ".join(morceaux)
             ev.append(f"Dialogue: 0,{_t(debut)},{_t(min(fin, duree))},Sous,,0,0,0,,{{\\pos(540,{y_sous})\\fsp-2{flou_sous}}}{txt}")
+    # appel à s'abonner dans la vidéo (18/11 : 200 vues par reel et aucun abonné, la légende n'est presque pas lue) :
+    # les dernières secondes, dans la bande de jeu, sous les sous-titres
+    appel = h.get("appel_video")
+    if appel and duree > 6:
+        deb = duree - h.get("appel_video_duree_s", 2.5)
+        txt = _esc(appel).replace("ABONNE-TOI", f"{{\\1c{h.get('couleur_mot_fort', h['couleur_mot'])}}}ABONNE-TOI{{\\1c&H00FFFFFF}}")
+        ev.append(f"Dialogue: 3,{_t(deb)},{_t(duree)},Appel,,0,0,0,,"
+                  f"{{\\pos(540,1090)\\fsp-1\\fad(120,0)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}}{txt}")
     Path(chemin).write_text(entete + "\n".join(ev) + "\n", encoding="utf-8")
 
 

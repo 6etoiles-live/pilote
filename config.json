@@ -49,7 +49,9 @@
   "accroche_casse": "majuscules",
   "style_texte": "ombre",
   "couleur_mot_fort": "&H00E963D2",
-  "accroche_tout_le_clip": true
+  "accroche_tout_le_clip": true,
+  "appel_video": "ABONNE-TOI POUR LA SUITE",
+  "appel_video_duree_s": 2.5
  },
  "publication": {
   "mode": "auto",
