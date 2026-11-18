@@ -126,7 +126,7 @@
     "max_jour": 80,
     "ecart_min_minutes": 8,
     "sans_etalement": true,
-    "rattrapage": true
+    "rattrapage": false
    }
   },
   "jeux_avant_sortie": [
