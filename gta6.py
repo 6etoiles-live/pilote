@@ -224,6 +224,8 @@ def main():
         with Verrou() as libre:
             if libre:
                 pilote.publier_du()
+            else:
+                log("publier : un passage est en cours, publication laissée au passage")
     elif a.cmd == "retirer":
         cmd_retirer(a.login)
     elif a.cmd == "infos":

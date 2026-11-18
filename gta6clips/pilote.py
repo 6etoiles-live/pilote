@@ -517,6 +517,10 @@ def publier_du():
     c = config()
     R = reglages(c)
     db = base()
+    # 18/11 : les refus « plafond de la chaîne » notés echec avant le correctif ne doivent pas brûler les clips
+    db.execute("update publications set statut = 'bloque' where statut = 'echec' "
+               "and reponse like '%exceeded the number of videos%'")
+    db.commit()
     expirer(db)
     n = 0
     with Diffusion() as diff:
@@ -656,7 +660,7 @@ def point():
     mode = "SIMULATION (comptes pas encore branchés)" if R["publier_avec"] == "aucun" else f"réelle par {R['publier_avec']}"
     lignes = [f"6 Étoiles, point du {p:%d/%m/%Y à %H h %M}", f"Publication : {mode}", "",
               f"Dernières 24 h : {vus} clip(s) repéré(s), {prets} prêt(s) dans la file, {erreurs} erreur(s)."]
-    noms = {"publie": "publié(s)", "simule": "simulé(s)", "en_cours": "en cours chez Zernio", "echec": "échec(s)"}
+    noms = {"publie": "publié(s)", "simule": "simulé(s)", "en_cours": "en cours chez Zernio", "echec": "échec(s)", "bloque": "bloqué(s) par la plateforme"}
     for r in pubs:
         lignes.append(f"{r['plateforme']} : {r['n']} {noms.get(r['statut'], r['statut'])}")
     if raisons:
