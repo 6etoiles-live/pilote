@@ -128,11 +128,11 @@
     "compter_depuis": "2026-11-18T19:30:00+00:00"
    },
    "youtube": {
-    "max_jour": 95,
+    "max_jour": 10,
     "ecart_min_minutes": 40,
     "sans_etalement": true,
     "rattrapage": false,
-    "pause_blocage_minutes": 30,
+    "pause_blocage_minutes": 120,
     "creneaux": [
      [
       "17:00",
