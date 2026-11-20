@@ -240,7 +240,7 @@ def preparer_un(db, clip, c, R):
         if a.get("note_6"):
             db.execute("update file set note = ? where id = ?", (int(a["note_6"]), f"clip:{cid}"))
         db.execute("update file set type_moment = ? where id = ?", (a.get("type_moment"), f"clip:{cid}"))
-        if a.get("type_moment") in ("fail", "chaos") and int(a["interet"]) >= R.get("interet_chaos_appris", 7):
+        if a.get("type_moment") in ("fail", "wtf", "chaos") and int(a["interet"]) >= R.get("interet_chaos_appris", 7):
             noter_chaos(db, clip["streamer"], "appris")
         maj(db, cid, statut="pret", sortie=str(sortie), accroche=a["accroche"], legende=legende,
             raison=f"intérêt {a['interet']}/10, {a.get('type_moment', '?')}{', inédit' if a.get('inedit') else ''} : {a.get('raison', '')}"[:300])
@@ -447,77 +447,104 @@ def cartes_programmees():
 # ---------- Top 5 du jour ----------
 
 def compil_du_jour():
-    """Rendez-vous quotidien (18/11, plan abonnés validé par le propriétaire) : « JOUR N SUR GTA 6, LE TOP 5 DES STREAMERS FR »,
-    les 5 meilleurs clips GTA 6 des dernières 24 h (note 6 Étoiles, puis intérêt), streamers tous différents,
-    du N°5 au N°1. Montée dans l'heure qui précède l'heure prévue, publiée à cette heure sur chaque plateforme.
+    """Tops du jour (18/11, plan abonnés ; 20/11, le propriétaire : « des tops, de moments what the fuck, pas de découverte »).
+    Chaque top de compil.tops : les meilleurs clips GTA 6 des dernières 24 h d'un ou plusieurs types de moment
+    (fail, wtf, chaos...), note 6 Étoiles puis intérêt, streamers tous différents, du N°5 au N°1, jamais un clip
+    déjà pris dans un autre top des dernières 24 h. Monté dans l'heure qui précède, publié à l'heure prévue.
     C'est notre classement : du contenu original au sens d'Instagram et de YouTube."""
     c = config()
     reg = c.get("compil") or {}
     if not reg.get("active"):
         return 0
-    from .radar import sortie_du_jeu, est_gta6
+    from .radar import sortie_du_jeu
     if maintenant() < sortie_du_jeu(c):
         return 0
+    tops = reg.get("tops") or [{"id": "", "heure": reg.get("heure", "19:00"), "titre": "TOP {n} DU JOUR",
+                                "legende": "top {n} des streamers FR", "types": []}]
+    faits = 0
+    for top in tops:
+        try:
+            faits += _un_top(c, reg, top)
+        except Exception as e:
+            log(f"pilote : top « {top.get('id')} » en erreur ({e})")
+    return faits
+
+
+def _un_top(c, reg, top):
+    from .radar import est_gta6
     p = paris()
-    hh, mm = (int(x) for x in reg.get("heure", "19:00").split(":"))
+    hh, mm = (int(x) for x in top.get("heure", "19:00").split(":"))
     prevu = p.replace(hour=hh, minute=mm, second=0, microsecond=0)
     if prevu.date() < dt.date(2026, 11, 19):  # premier Top le soir de la sortie en France
         return 0
     if not (prevu - dt.timedelta(minutes=reg.get("monter_avant_min", 60)) <= p <= prevu + dt.timedelta(hours=3)):
         return 0
     db = base()
-    fid = f"compil:{prevu.date().isoformat()}"
+    tid = top.get("id") or ""
+    fid = f"compil:{prevu.date().isoformat()}" + (f":{tid}" if tid != "fails" and tid else "")
     if db.execute("select 1 from file where id = ?", (fid,)).fetchone():
         return 0
+    depuis = _iso(prevu - dt.timedelta(hours=24))
+    pris = {r[0] for r in db.execute("select clip_file_id from tops where le >= ?", (depuis,))}
+    # top monté avant la table tops (20/11) : ses streamers sont écartés, faute de connaître ses clips
+    anciens = {s for r in db.execute("""select legende from file where genre = 'compil' and pas_avant >= ?
+                                         and id not in (select compil_id from tops)""", (depuis,))
+               for s in re.findall(r"twitch\.tv/(\w+)", r[0] or "")}
     lignes = db.execute("""select f.*, c.jeu from file f join clips c on c.id = f.ref
                            where f.genre = 'clip' and f.statut in ('pret', 'publie') and f.ajoute_le >= ?
-                           order by coalesce(f.note, 0) desc, f.interet desc, f.score desc""",
-                        (_iso(prevu - dt.timedelta(hours=24)),)).fetchall()
+                           order by coalesce(f.note, 0) desc, f.interet desc, f.score desc""", (depuis,)).fetchall()
+    nombre, minimum = reg.get("nombre", 5), reg.get("minimum", 3)
+
     def choisir(types):
         choisis, vus = [], set()
         for r in lignes:
             if types and r["type_moment"] not in types:
                 continue
-            if r["streamer"] in vus or r["streamer"] in refuses() or not est_gta6(r["jeu"]) or not Path(r["fichier"]).exists():
+            if r["id"] in pris or r["streamer"] in anciens or r["streamer"] in vus or r["streamer"] in refuses() or not est_gta6(r["jeu"]) \
+                    or not Path(r["fichier"]).exists():
                 continue
             vus.add(r["streamer"])
             choisis.append(r)
-            if len(choisis) == reg.get("nombre", 5):
+            if len(choisis) == nombre:
                 break
         return choisis
-    # 20/11 : le Top est celui des fails ; s'il n'y en a pas assez (clips analysés avant), titre neutre
-    choisis = choisir(("fail", "chaos", "drole"))
-    fails = len(choisis) >= reg.get("minimum", 3)
-    if not fails:
-        choisis = choisir(None)
-    if len(choisis) < reg.get("minimum", 3):
-        log(f"pilote : Top du jour reporté, {len(choisis)} clip(s) GTA 6 encore disponibles")
+    choisis, titre_top, mot = choisir(top.get("types") or None), top.get("titre", "TOP {n}"), top.get("legende", "")
+    if len(choisis) < minimum and top.get("repli"):  # pas assez de moments du type : types voisins, même titre
+        choisis = choisir(top["repli"])
+    if len(choisis) < minimum and top.get("neutre"):  # rendez-vous promis : il part quand même, titre neutre
+        choisis, titre_top, mot = choisir(None), "TOP {n} DU JOUR", "top {n} des streamers FR"
+    if len(choisis) < minimum:
+        log(f"pilote : top « {tid} » reporté, {len(choisis)} clip(s) GTA 6 du bon type disponibles")
         return 0
     n = len(choisis)
+    titre_top, mot = titre_top.format(n=n), mot.format(n=n)
     jour = monter.contexte_jeu("Grand Theft Auto VI", prevu).replace(" SUR GTA 6", "").replace("1ER JOUR", "JOUR 1")
     jour = re.sub(r"^(\d+)E JOUR$", r"JOUR \1", jour) if jour != "SUR GTA 6" else ""
     d = c["dossier_sortie"] / "A PUBLIER" / prevu.strftime("%Y-%m-%d")
     d.mkdir(parents=True, exist_ok=True)
-    sortie = d / f"top{n}-{prevu.strftime('%Y-%m-%d')}.mp4"
+    sortie = d / f"top{n}{('-' + tid) if tid else ''}-{prevu.strftime('%Y-%m-%d')}.mp4"
     elements = [(choisis[i]["fichier"], i + 1, choisis[i]["streamer"]) for i in reversed(range(n))]  # N°5 ... N°1
-    monter.compiler(elements, sortie, f"{jour} SUR GTA 6".strip(), f"TOP {n} DES FAILS" if fails else f"TOP {n} DU JOUR")
+    monter.compiler(elements, sortie, f"{jour} SUR GTA 6".strip(), titre_top)
     defaut = controler_rendu(sortie)
     if defaut:
         a_la_corbeille(sortie)
-        log(f"pilote : Top du jour refusé ({defaut})")
+        log(f"pilote : top « {tid} » refusé ({defaut})")
         return 0
     classement = "\n".join(f"N°{i + 1} {(choisis[i]['accroche'] or '').capitalize().replace('gta', 'GTA')} ({choisis[i]['streamer']})" for i in range(n))
     credits = "\n".join(f"🎮 twitch.tv/{r['streamer']}" for r in choisis)
-    titre = f"{jour.capitalize() + ' sur GTA 6 : le' if jour else 'Le'} top {n} {'des fails ' if fails else ''}des streamers FR 🏆"
+    titre = f"{jour.capitalize() + ' sur GTA 6 : le' if jour else 'Le'} {mot} 🏆"
     legende = (f"{titre}\n\n{classement}\n\nTon préféré ? Dis-le en commentaire 👇\n\n"
-               f"{c.get('appel_abonnement', '')}\n\n{credits}\n\n#gta6 #gta6fr #top{n} #streamerfr #gta6clips #gta6fails")
+               f"{c.get('appel_abonnement', '')}\n\n{credits}\n\n#gta6 #gta6fr #top{n} #streamerfr #gta6clips"
+               f"{' ' + top['hashtag'] if top.get('hashtag') else ''}")
     sortie.with_suffix(".txt").write_text(legende, encoding="utf-8")
     db.execute("""insert into file (id, genre, ref, fichier, legende, streamer, accroche, interet, inedit, score,
                   pas_avant, expire_le, statut, ajoute_le, note) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-               (fid, "compil", fid, str(sortie), legende, None, f"TOP {n} DU JOUR", 10, 0, 0, _iso(prevu),
+               (fid, "compil", fid, str(sortie), legende, None, titre_top, 10, 0, 0, _iso(prevu),
                 _iso(prevu + dt.timedelta(hours=5)), "pret", _iso(maintenant()), 6))
+    db.executemany("insert into tops (compil_id, clip_file_id, le) values (?, ?, ?)",
+                   [(fid, r["id"], _iso(prevu)) for r in choisis])
     db.commit()
-    log(f"pilote : Top {n} du jour prêt pour {reg.get('heure', '19:00')} ({', '.join(r['streamer'] for r in choisis)})")
+    log(f"pilote : {titre_top} prêt pour {top.get('heure')} ({', '.join(r['streamer'] for r in choisis)})")
     return 1
 
 

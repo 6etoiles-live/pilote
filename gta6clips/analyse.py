@@ -36,7 +36,7 @@ SCHEMA = {
         "debut_s": {"type": "number"},
         "fin_s": {"type": "number"},
         "note_6": {"type": "integer"},
-        "type_moment": {"type": "string", "enum": ["fail", "chaos", "drole", "action", "decouverte", "mission", "discussion"]},
+        "type_moment": {"type": "string", "enum": ["fail", "wtf", "chaos", "drole", "action", "decouverte", "mission", "discussion"]},
     },
     "required": ["image", "spoiler", "musique_sous_licence", "accroche", "mot_fort", "legende", "interet", "inedit",
                  "deja_vu", "raison", "cam", "cam_zone", "cam_bandeau", "debut_s", "fin_s", "note_6", "type_moment"],
@@ -51,7 +51,7 @@ crochets est la seconde du clip où la phrase commence) :
 
 Les images {images} sont prises à 10, 30, 50, 70 et 90 % du clip.
 
-Ligne de la page (20/11) : les streamers qui font n'importe quoi. On cherche les fails, les morts absurdes, les
+Ligne de la page (20/11) : les streamers qui font n'importe quoi. On cherche les fails, les moments WTF, les morts absurdes, les
 plans qui tournent au désastre, les maladresses et le chaos drôle (exemple type : il ouvre l'arrière d'un camion et
 se fait dévorer par un tigre). Une mission jouée proprement, une visite ou une découverte du jeu sans rien de drôle,
 une discussion : ce n'est pas pour nous.
@@ -66,9 +66,9 @@ Réponds en JSON :
 - accroche : 2 à 7 mots en français, en majuscules, qui donnent envie de regarder sans mentir ni rien inventer, tirés de ce qui se passe vraiment. Elle doit APPORTER DU CONTEXTE OU UN POINT DE VUE que les images ne disent pas seules (l'enjeu, ce qui s'est passé avant, pourquoi c'est drôle ou rare), pas décrire l'action visible : « SON PREMIER BRAQUAGE TOURNE MAL » ou « 20 MIN À CHERCHER LA PLAGE » plutôt que « IL PERCUTE UN CAMION » (pas de « INCROYABLE », pas d'emoji, pas de point d'exclamation multiple, jamais de tiret long, de flèche ni de point médian). Orthographe et accords exacts (« AUX TROUSSES », pas « AU TROUSSE »).
 - mot_fort : le mot de l'accroche (ou deux mots liés, ex. « GTA 5 ») qui porte l'info importante, recopié tel quel ; il sera en rose. Un seul.
 - legende : une phrase courte en français qui dit ce qui se passe, avec au plus un smiley, sans hashtag (ils sont ajoutés ensuite), puis à la ligne une question courte qui donne envie de répondre en commentaire (ex. « Tu aurais fait pareil ? »).
-- interet : de 0 à 10, la chance que ce moment fasse rire quelqu'un qui ne connaît pas le streamer, par un fail, une maladresse, une mort absurde ou un chaos drôle. Sois exigeant : 7 et plus seulement si le moment se comprend sans contexte et tient en quelques secondes. Une mission réussie, une balade ou une découverte sans gag : 4 au plus, même si c'est joli ou nouveau.
+- interet : de 0 à 10, la chance que ce moment fasse rire quelqu'un qui ne connaît pas le streamer, par un fail, un moment WTF, une maladresse, une mort absurde ou un chaos drôle. Sois exigeant : 7 et plus seulement si le moment se comprend sans contexte et tient en quelques secondes. Une mission réussie, une balade ou une découverte sans gag : 4 au plus, même si c'est joli ou nouveau.
 - inedit : true si la situation est rare (un gag qu'on ne reverra pas, une mort jamais vue), pas pour une simple découverte du jeu.
-- type_moment : « fail » (il rate, meurt bêtement, se fait avoir), « chaos » (il sème le désordre exprès, n'importe quoi), « drole » (blague, réaction, absurde sans fail), « action » (poursuite, fusillade réussie), « decouverte » (lieu, véhicule, mécanique), « mission » (il joue l'histoire ou une mission normalement), « discussion » (il parle surtout).
+- type_moment : « fail » (il rate, meurt bêtement, se fait avoir), « wtf » (moment absurde ou improbable qui fait dire « mais c'est quoi ça » : bug énorme, situation surréaliste, réaction du jeu qu'on n'attend pas, sans que ce soit un simple fail), « chaos » (il sème le désordre exprès, n'importe quoi), « drole » (blague, réaction, absurde sans fail), « action » (poursuite, fusillade réussie), « decouverte » (lieu, véhicule, mécanique), « mission » (il joue l'histoire ou une mission normalement), « discussion » (il parle surtout).
 - deja_vu : true seulement si c'est le même moment qu'un clip déjà publié listé plus haut (même streamer, même scène). Un thème proche (police, voiture, prison) chez un autre streamer n'est pas un doublon : false.
 - raison : une ligne qui justifie la note.
 - cam : true si on voit la webcam du streamer incrustée dans l'image du jeu (une petite vidéo de la personne réelle, souvent dans un coin), sur la première image.

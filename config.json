@@ -178,6 +178,38 @@
   "monter_avant_min": 60,
   "intro_s": 1.6,
   "clip_max_s": 22,
-  "debit_video": "14M"
+  "debit_video": "14M",
+  "tops": [
+   {
+    "id": "fails",
+    "heure": "19:00",
+    "titre": "TOP {n} DES FAILS",
+    "legende": "top {n} des fails des streamers FR",
+    "types": [
+     "fail"
+    ],
+    "repli": [
+     "fail",
+     "chaos",
+     "drole"
+    ],
+    "neutre": true,
+    "hashtag": "#gta6fails"
+   },
+   {
+    "id": "wtf",
+    "heure": "22:00",
+    "titre": "TOP {n} WTF",
+    "legende": "top {n} des moments WTF des streamers FR",
+    "types": [
+     "wtf"
+    ],
+    "repli": [
+     "wtf",
+     "chaos"
+    ],
+    "hashtag": "#gta6wtf"
+   }
+  ]
  }
 }
