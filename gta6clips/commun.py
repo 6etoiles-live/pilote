@@ -208,6 +208,10 @@ def base():
     )""")
     if "note" not in [r[1] for r in db.execute("pragma table_info(file)")]:
         db.execute("alter table file add column note integer")  # note « 6 Étoiles » de l'analyse (18/11)
+    if "type_moment" not in [r[1] for r in db.execute("pragma table_info(file)")]:
+        db.execute("alter table file add column type_moment text")  # fail, chaos, drole... (20/11)
+    # 20/11 : streamers qui font n'importe quoi (fails, chaos), analysés en premier ; appris au fil des clips
+    db.execute("create table if not exists chaos (login text primary key, depuis text, clips integer default 0, origine text)")
     return db
 
 

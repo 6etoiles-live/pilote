@@ -50,7 +50,7 @@
   "style_texte": "ombre",
   "couleur_mot_fort": "&H00E963D2",
   "accroche_tout_le_clip": true,
-  "appel_video": "TOP 5 DU JOUR À 19 H | ABONNE-TOI",
+  "appel_video": "TOP 5 DES FAILS À 19 H | ABONNE-TOI",
   "appel_video_duree_s": 2.5,
   "duree_max_s": 30
  },
@@ -157,10 +157,19 @@
    ]
   ],
   "bonus_notoriete": 0.05,
-  "abonnes_star": 10000000
+  "abonnes_star": 10000000,
+  "streamers_chaos": [
+   "pauleta_twitch"
+  ],
+  "types_refuses": [
+   "mission",
+   "discussion"
+  ],
+  "interet_min_hors_fail": 8,
+  "interet_chaos_appris": 7
  },
  "fin_attente": "2026-11-18T12:15:00Z",
- "appel_abonnement": "Chaque soir à 19 h, le top 5 GTA 6 des streamers FR. Abonne-toi ⭐",
+ "appel_abonnement": "Chaque soir à 19 h, le top 5 des fails GTA 6 des streamers FR. Abonne-toi ⭐",
  "compil": {
   "active": true,
   "heure": "19:00",

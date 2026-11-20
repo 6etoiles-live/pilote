@@ -120,6 +120,17 @@ def recents(db):
         "and accroche is not null order by ajoute_le desc limit 20", (limite,))]
 
 
+def noter_chaos(db, login, origine):
+    """Streamer qui fait n'importe quoi : ses prochains clips sont analysés en premier (20/11)."""
+    if not login:
+        return
+    login = login.lower()
+    db.execute("insert or ignore into chaos (login, depuis, clips, origine) values (?, ?, 0, ?)",
+               (login, _iso(maintenant()), origine))
+    if origine == "appris":
+        db.execute("update chaos set clips = clips + 1 where login = ?", (login,))
+
+
 def barriere(a, R):
     """Raison de ne pas publier, ou None."""
     if a.get("voie") == "regles":
@@ -134,6 +145,11 @@ def barriere(a, R):
         return "même sujet qu'un post récent"
     if not (a.get("accroche") or "").strip():
         return "accroche vide"
+    t = a.get("type_moment")
+    if t in R.get("types_refuses", ("mission", "discussion")):
+        return f"moment « {t} » : la page publie les fails et le chaos (20/11)"
+    if t in ("decouverte", "action") and (a.get("interet") or 0) < R.get("interet_min_hors_fail", 8):
+        return f"moment « {t} » sans gag, intérêt {a.get('interet')}/10 sous {R.get('interet_min_hors_fail', 8)}"
     if (a.get("interet") or 0) < R["seuil_interet"]:
         return f"intérêt {a.get('interet')}/10 sous le seuil de {R['seuil_interet']}"
     return None
@@ -223,8 +239,11 @@ def preparer_un(db, clip, c, R):
                     _iso(expire), "pret", _iso(maintenant())))
         if a.get("note_6"):
             db.execute("update file set note = ? where id = ?", (int(a["note_6"]), f"clip:{cid}"))
+        db.execute("update file set type_moment = ? where id = ?", (a.get("type_moment"), f"clip:{cid}"))
+        if a.get("type_moment") in ("fail", "chaos") and int(a["interet"]) >= R.get("interet_chaos_appris", 7):
+            noter_chaos(db, clip["streamer"], "appris")
         maj(db, cid, statut="pret", sortie=str(sortie), accroche=a["accroche"], legende=legende,
-            raison=f"intérêt {a['interet']}/10{', inédit' if a.get('inedit') else ''} : {a.get('raison', '')}"[:300])
+            raison=f"intérêt {a['interet']}/10, {a.get('type_moment', '?')}{', inédit' if a.get('inedit') else ''} : {a.get('raison', '')}"[:300])
         log(f"pilote : prêt {sortie.name} (intérêt {a['interet']}/10, {a['accroche']})")
         return sortie
     except Exception as e:
@@ -308,7 +327,10 @@ def preparer(maxi=None, jeux=None):
     charges = {r["streamer"]: r["n"] for r in db.execute(
         "select streamer, count(*) n from file where statut = 'pret' and genre = 'clip' group by streamer")}
     q = (f"select * from clips where statut in ('nouveau', 'telecharge', 'attente') and cree_le >= ? "
-         f"and jeu in ({','.join('?' * len(jeux))}) order by (jeu = 'Grand Theft Auto VI') desc, score desc limit 60")
+         f"and jeu in ({','.join('?' * len(jeux))}) order by (jeu = 'Grand Theft Auto VI') desc, "
+         f"(lower(streamer) in (select login from chaos)) desc, score desc limit 60")
+    for login in R.get("streamers_chaos", []):  # liste de départ (config), le reste s'apprend
+        noter_chaos(db, login, "config")
     faits, vus, essais = 0, set(), 0
     plafond_passage = min(reste, 2 * maxi)  # chaque essai = téléchargement, whisper et une analyse Claude
     for r in db.execute(q, [limite, *jeux]).fetchall():
@@ -451,14 +473,23 @@ def compil_du_jour():
                            where f.genre = 'clip' and f.statut in ('pret', 'publie') and f.ajoute_le >= ?
                            order by coalesce(f.note, 0) desc, f.interet desc, f.score desc""",
                         (_iso(prevu - dt.timedelta(hours=24)),)).fetchall()
-    choisis, vus = [], set()
-    for r in lignes:
-        if r["streamer"] in vus or r["streamer"] in refuses() or not est_gta6(r["jeu"]) or not Path(r["fichier"]).exists():
-            continue
-        vus.add(r["streamer"])
-        choisis.append(r)
-        if len(choisis) == reg.get("nombre", 5):
-            break
+    def choisir(types):
+        choisis, vus = [], set()
+        for r in lignes:
+            if types and r["type_moment"] not in types:
+                continue
+            if r["streamer"] in vus or r["streamer"] in refuses() or not est_gta6(r["jeu"]) or not Path(r["fichier"]).exists():
+                continue
+            vus.add(r["streamer"])
+            choisis.append(r)
+            if len(choisis) == reg.get("nombre", 5):
+                break
+        return choisis
+    # 20/11 : le Top est celui des fails ; s'il n'y en a pas assez (clips analysés avant), titre neutre
+    choisis = choisir(("fail", "chaos", "drole"))
+    fails = len(choisis) >= reg.get("minimum", 3)
+    if not fails:
+        choisis = choisir(None)
     if len(choisis) < reg.get("minimum", 3):
         log(f"pilote : Top du jour reporté, {len(choisis)} clip(s) GTA 6 encore disponibles")
         return 0
@@ -469,7 +500,7 @@ def compil_du_jour():
     d.mkdir(parents=True, exist_ok=True)
     sortie = d / f"top{n}-{prevu.strftime('%Y-%m-%d')}.mp4"
     elements = [(choisis[i]["fichier"], i + 1, choisis[i]["streamer"]) for i in reversed(range(n))]  # N°5 ... N°1
-    monter.compiler(elements, sortie, f"{jour} SUR GTA 6".strip(), f"TOP {n} DES STREAMERS FR")
+    monter.compiler(elements, sortie, f"{jour} SUR GTA 6".strip(), f"TOP {n} DES FAILS" if fails else f"TOP {n} DU JOUR")
     defaut = controler_rendu(sortie)
     if defaut:
         a_la_corbeille(sortie)
@@ -477,9 +508,9 @@ def compil_du_jour():
         return 0
     classement = "\n".join(f"N°{i + 1} {(choisis[i]['accroche'] or '').capitalize().replace('gta', 'GTA')} ({choisis[i]['streamer']})" for i in range(n))
     credits = "\n".join(f"🎮 twitch.tv/{r['streamer']}" for r in choisis)
-    titre = f"{jour.capitalize() + ' sur GTA 6 : le' if jour else 'Le'} top {n} des streamers FR 🏆"
+    titre = f"{jour.capitalize() + ' sur GTA 6 : le' if jour else 'Le'} top {n} {'des fails ' if fails else ''}des streamers FR 🏆"
     legende = (f"{titre}\n\n{classement}\n\nTon préféré ? Dis-le en commentaire 👇\n\n"
-               f"{c.get('appel_abonnement', '')}\n\n{credits}\n\n#gta6 #gta6fr #top{n} #streamerfr #gta6clips")
+               f"{c.get('appel_abonnement', '')}\n\n{credits}\n\n#gta6 #gta6fr #top{n} #streamerfr #gta6clips #gta6fails")
     sortie.with_suffix(".txt").write_text(legende, encoding="utf-8")
     db.execute("""insert into file (id, genre, ref, fichier, legende, streamer, accroche, interet, inedit, score,
                   pas_avant, expire_le, statut, ajoute_le, note) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
@@ -538,7 +569,7 @@ def priorite(r, t=None):
     age_h = (t - cree).total_seconds() / 3600 if cree else 12
     # après la sortie, les découvertes du jeu (lieu, véhicule, mécanique) passent devant : consigne du 16/11
     from .radar import sortie_du_jeu
-    poids_inedit = 30 if t >= sortie_du_jeu(config()) else 15
+    poids_inedit = 5 if t >= sortie_du_jeu(config()) else 15  # 20/11 : fails et chaos avant les découvertes
     return (r["interet"] or 0) * 10 + poids_inedit * (r["inedit"] or 0) + 8 * math.log10(1 + max(0, r["score"] or 0)) - min(2 * age_h, 30)
 
 
